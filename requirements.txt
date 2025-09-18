@@ -11,7 +11,7 @@ python-dotenv==0.19.1
 
 # Utilities
 
-requests==2.26.0
+requests==2.32.4
 python-dateutil==2.8.2
 
 # Production server
