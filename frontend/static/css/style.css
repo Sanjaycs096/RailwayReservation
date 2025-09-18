@@ -123,6 +123,7 @@ a:hover {
 .mt-5 { margin-top: 3rem; }
 
 /* Header Styles */
+
 .header {
     background-color: white;
     box-shadow: var(--box-shadow);
@@ -145,11 +146,6 @@ a:hover {
     align-items: center;
 }
 
-.logo img {
-    height: 40px;
-    margin-right: 10px;
-}
-
 .logo h1 {
     font-size: 24px;
     color: var(--dark-color);
@@ -159,18 +155,23 @@ a:hover {
 .nav-links {
     display: flex;
     list-style: none;
+    gap: 30px;
+    margin: 0;
 }
 
 .nav-links li {
-    margin-left: 30px;
+    margin: 0;
 }
 
 .nav-links a {
     color: var(--dark-color);
     font-weight: 500;
     position: relative;
+    padding: 8px 0;
+    transition: color 0.2s;
 }
 
+.nav-links a.active,
 .nav-links a:hover {
     color: var(--primary-color);
 }
@@ -186,13 +187,9 @@ a:hover {
     transition: var(--transition);
 }
 
+.nav-links a.active::after,
 .nav-links a:hover::after {
     width: 100%;
-}
-
-.auth-buttons {
-    display: flex;
-    gap: 10px;
 }
 
 .mobile-menu-btn {
@@ -202,6 +199,22 @@ a:hover {
     font-size: 24px;
     color: var(--dark-color);
     cursor: pointer;
+}
+
+.train-animation-wrapper {
+    width: 220px;
+    margin: 40px auto 0 auto;
+    overflow: visible;
+    position: relative;
+    height: 90px;
+}
+
+#trainSVG {
+    will-change: transform;
+    transition: transform 0.3s cubic-bezier(.4,2,.6,1);
+    position: absolute;
+    left: 0;
+    top: 0;
 }
 
 /* Hero Section */
@@ -1223,7 +1236,6 @@ a:hover {
     .header-container {
         padding: 15px;
     }
-    
     .nav-links {
         display: none;
         position: absolute;
@@ -1234,30 +1246,30 @@ a:hover {
         flex-direction: column;
         padding: 20px;
         box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        gap: 0;
     }
-    
     .nav-links.active {
         display: flex;
     }
-    
     .nav-links li {
         margin: 0 0 15px 0;
     }
-    
     .mobile-menu-btn {
         display: block;
     }
-    
     .hero h2 {
         font-size: 36px;
     }
-    
     .hero p {
         font-size: 18px;
     }
-    
     .search-form {
         grid-template-columns: 1fr;
+    }
+    .train-animation-wrapper {
+        width: 100vw;
+        max-width: 100vw;
+        margin: 30px 0 0 0;
     }
 }
 

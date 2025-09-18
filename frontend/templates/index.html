@@ -11,22 +11,18 @@
 <body>
     <!-- Header Section -->
     <header class="header">
-        <div class="container">
+        <div class="header-container container">
             <div class="logo">
                 <h1><i class="fas fa-train"></i> RailConnect</h1>
             </div>
-            <nav class="nav">
-                <ul>
-                    <li><a href="#" class="active">Home</a></li>
-                    <li><a href="#booking">Book Tickets</a></li>
-                    <li><a href="#tracking">Track Train</a></li>
-                    <li><a href="#alerts">Alerts</a></li>
-                    <li><a href="#" id="loginBtn">Login</a></li>
-                </ul>
-            </nav>
-            <div class="menu-toggle">
-                <i class="fas fa-bars"></i>
-            </div>
+            <ul class="nav-links">
+                <li><a href="#" class="active">Home</a></li>
+                <li><a href="#booking">Book Tickets</a></li>
+                <li><a href="#tracking">Track Train</a></li>
+                <li><a href="#alerts">Alerts</a></li>
+                <li><a href="#" id="loginBtn">Login</a></li>
+            </ul>
+            <button class="mobile-menu-btn" aria-label="Open navigation menu"><i class="fas fa-bars"></i></button>
         </div>
     </header>
 
@@ -40,6 +36,20 @@
                     <a href="#booking" class="btn btn-primary">Book Now</a>
                     <a href="#tracking" class="btn btn-secondary">Track Train</a>
                 </div>
+            </div>
+            <!-- Animated Train SVG -->
+            <div class="train-animation-wrapper">
+                <svg id="trainSVG" width="220" height="80" viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="20" y="40" width="120" height="30" rx="8" fill="#3498db"/>
+                  <rect x="140" y="50" width="40" height="20" rx="5" fill="#2ecc71"/>
+                  <circle cx="40" cy="75" r="8" fill="#333"/>
+                  <circle cx="80" cy="75" r="8" fill="#333"/>
+                  <circle cx="120" cy="75" r="8" fill="#333"/>
+                  <circle cx="160" cy="75" r="8" fill="#333"/>
+                  <rect x="30" y="50" width="20" height="10" rx="2" fill="#fff"/>
+                  <rect x="60" y="50" width="20" height="10" rx="2" fill="#fff"/>
+                  <rect x="90" y="50" width="20" height="10" rx="2" fill="#fff"/>
+                </svg>
             </div>
         </div>
     </section>
@@ -153,17 +163,17 @@
 
     <!-- Login Modal -->
     <div id="loginModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Login</h2>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
+            <span class="close" tabindex="0" aria-label="Close">&times;</span>
+            <h2 id="loginTitle">Login</h2>
             <form id="loginForm">
                 <div class="form-group">
                     <label for="email">Email</label>
-                    <input type="email" id="email" placeholder="Enter your email">
+                    <input type="email" id="email" placeholder="Enter your email" required autocomplete="username">
                 </div>
                 <div class="form-group">
                     <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password">
+                    <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
                 </div>
                 <button type="submit" class="btn btn-primary">Login</button>
             </form>
@@ -173,25 +183,25 @@
 
     <!-- Register Modal -->
     <div id="registerModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Register</h2>
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="registerTitle">
+            <span class="close" tabindex="0" aria-label="Close">&times;</span>
+            <h2 id="registerTitle">Register</h2>
             <form id="registerForm">
                 <div class="form-group">
                     <label for="name">Full Name</label>
-                    <input type="text" id="name" placeholder="Enter your full name">
+                    <input type="text" id="name" placeholder="Enter your full name" required autocomplete="name">
                 </div>
                 <div class="form-group">
                     <label for="registerEmail">Email</label>
-                    <input type="email" id="registerEmail" placeholder="Enter your email">
+                    <input type="email" id="registerEmail" placeholder="Enter your email" required autocomplete="email">
                 </div>
                 <div class="form-group">
                     <label for="registerPassword">Password</label>
-                    <input type="password" id="registerPassword" placeholder="Enter your password">
+                    <input type="password" id="registerPassword" placeholder="Enter your password" required autocomplete="new-password">
                 </div>
                 <div class="form-group">
                     <label for="confirmPassword">Confirm Password</label>
-                    <input type="password" id="confirmPassword" placeholder="Confirm your password">
+                    <input type="password" id="confirmPassword" placeholder="Confirm your password" required autocomplete="new-password">
                 </div>
                 <button type="submit" class="btn btn-primary">Register</button>
             </form>
@@ -345,7 +355,30 @@
         </div>
     </footer>
 
-    <!-- JavaScript -->
-    <script src="../static/js/main.js"></script>
+        <!-- JavaScript -->
+        <script src="../static/js/main.js"></script>
+        <script>
+        // Train animation on scroll
+        window.addEventListener('scroll', function() {
+            const train = document.getElementById('trainSVG');
+            if (train) {
+                const scrollY = window.scrollY;
+                const maxScroll = document.body.scrollHeight - window.innerHeight;
+                const percent = Math.min(scrollY / maxScroll, 1);
+                train.style.transform = `translateX(${percent * 60}vw)`;
+                train.style.transition = 'transform 0.3s cubic-bezier(.4,2,.6,1)';
+            }
+        });
+        // Mobile nav toggle
+        const menuBtn = document.querySelector('.mobile-menu-btn');
+        const navLinks = document.querySelector('.nav-links');
+        menuBtn && menuBtn.addEventListener('click', () => navLinks.classList.toggle('active'));
+        // Modal accessibility: close on ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+            }
+        });
+        </script>
 </body>
 </html>
