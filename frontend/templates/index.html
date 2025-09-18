@@ -166,18 +166,33 @@
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
             <span class="close" tabindex="0" aria-label="Close">&times;</span>
             <h2 id="loginTitle">Login</h2>
-            <form id="loginForm">
+            <div class="login-tabs">
+                <button class="tab-btn active" id="adminTab">Admin</button>
+                <button class="tab-btn" id="passengerTab">Passenger</button>
+            </div>
+            <form id="adminLoginForm" class="login-form">
                 <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" placeholder="Enter your email" required autocomplete="username">
+                    <label for="adminEmail">Email</label>
+                    <input type="email" id="adminEmail" placeholder="Enter admin email" required autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+                    <label for="adminPassword">Password</label>
+                    <input type="password" id="adminPassword" placeholder="Enter password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn btn-primary">Login</button>
+                <button type="submit" class="btn btn-primary">Login as Admin</button>
             </form>
-            <p>Don't have an account? <a href="#" id="registerLink">Register</a></p>
+            <form id="passengerLoginForm" class="login-form" style="display:none;">
+                <div class="form-group">
+                    <label for="passengerPhone">Phone Number</label>
+                    <input type="tel" id="passengerPhone" placeholder="Enter phone number" required pattern="[0-9]{10}">
+                </div>
+                <div class="form-group otp-group" style="display:none;">
+                    <label for="passengerOTP">OTP</label>
+                    <input type="text" id="passengerOTP" placeholder="Enter OTP" maxlength="6">
+                </div>
+                <button type="button" class="btn btn-primary" id="sendOTPBtn">Send OTP</button>
+                <button type="submit" class="btn btn-primary" id="verifyOTPBtn" style="display:none;">Verify OTP</button>
+            </form>
         </div>
     </div>
 
@@ -223,32 +238,40 @@
                     <option value="A2">A2 - AC</option>
                 </select>
             </div>
-            <div class="seat-map-container">
-                <div id="seatMap" class="seat-map">
-                    <!-- Seat map will be displayed here -->
+            <div class="booking-container">
+                <div class="search-form">
+                    <form id="trainSearchForm">
+                        <div class="form-group">
+                            <label for="source">From</label>
+                            <input type="text" id="source" placeholder="Enter source station" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="destination">To</label>
+                            <input type="text" id="destination" placeholder="Enter destination station" autocomplete="off">
+                        </div>
+                        <div class="form-group">
+                            <label for="date">Date</label>
+                            <input type="date" id="date">
+                        </div>
+                        <div class="form-group">
+                            <label>Entered Data:</label>
+                            <div id="enteredData" style="background:#f5f7fa;padding:8px 12px;border-radius:5px;font-size:14px;color:#333;">
+                                From: <span id="enteredSource">-</span><br>
+                                To: <span id="enteredDestination">-</span><br>
+                                Date: <span id="enteredDate">-</span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Search Trains</button>
+                    </form>
+                </div>
+                <div class="train-results">
+                    <h3>Available Trains</h3>
+                    <div id="trainList" class="train-list">
+                        <!-- Train results will be displayed here -->
+                        <div class="no-trains">Search for trains to see results</div>
+                    </div>
                 </div>
             </div>
-            <div class="selected-seats">
-                <p>Selected Seats: <span id="selectedSeatsText">None</span></p>
-                <p>Total Price: ₹<span id="totalPrice">0</span></p>
-            </div>
-            <button id="proceedToPayment" class="btn btn-primary">Proceed to Payment</button>
-        </div>
-    </div>
-
-    <!-- Payment Modal -->
-    <div id="paymentModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Payment</h2>
-            <div class="payment-options">
-                <div class="payment-option">
-                    <input type="radio" id="creditCard" name="paymentMethod" value="creditCard" checked>
-                    <label for="creditCard">Credit Card</label>
-                </div>
-                <div class="payment-option">
-                    <input type="radio" id="debitCard" name="paymentMethod" value="debitCard">
-                    <label for="debitCard">Debit Card</label>
                 </div>
                 <div class="payment-option">
                     <input type="radio" id="upi" name="paymentMethod" value="upi">
@@ -356,29 +379,69 @@
     </footer>
 
         <!-- JavaScript -->
-        <script src="../static/js/main.js"></script>
-        <script>
-        // Train animation on scroll
-        window.addEventListener('scroll', function() {
-            const train = document.getElementById('trainSVG');
-            if (train) {
-                const scrollY = window.scrollY;
-                const maxScroll = document.body.scrollHeight - window.innerHeight;
-                const percent = Math.min(scrollY / maxScroll, 1);
-                train.style.transform = `translateX(${percent * 60}vw)`;
-                train.style.transition = 'transform 0.3s cubic-bezier(.4,2,.6,1)';
-            }
-        });
-        // Mobile nav toggle
-        const menuBtn = document.querySelector('.mobile-menu-btn');
-        const navLinks = document.querySelector('.nav-links');
-        menuBtn && menuBtn.addEventListener('click', () => navLinks.classList.toggle('active'));
-        // Modal accessibility: close on ESC
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
-            }
-        });
-        </script>
+            <script src="../static/js/main.js"></script>
+            <script>
+            // Train animation: move train SVG between sections as you scroll
+            window.addEventListener('scroll', function() {
+                const train = document.getElementById('trainSVG');
+                if (train) {
+                    const hero = document.querySelector('.hero');
+                    const features = document.querySelector('.features');
+                    const booking = document.getElementById('booking');
+                    const tracking = document.getElementById('tracking');
+                    const alerts = document.getElementById('alerts');
+                    const sections = [hero, features, booking, tracking, alerts];
+                    let sectionIndex = 0;
+                    let scrollY = window.scrollY + window.innerHeight/2;
+                    for (let i = 0; i < sections.length; i++) {
+                        if (sections[i].offsetTop < scrollY) sectionIndex = i;
+                    }
+                    train.style.transform = `translateX(${sectionIndex * 18}vw)`;
+                    train.style.transition = 'transform 0.5s cubic-bezier(.4,2,.6,1)';
+                }
+            });
+            // Mobile nav toggle
+            const menuBtn = document.querySelector('.mobile-menu-btn');
+            const navLinks = document.querySelector('.nav-links');
+            menuBtn && menuBtn.addEventListener('click', () => navLinks.classList.toggle('active'));
+            // Modal accessibility: close on ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.modal').forEach(m => m.style.display = 'none');
+                }
+            });
+            // Login modal tab switching
+            document.getElementById('adminTab').onclick = function() {
+                this.classList.add('active');
+                document.getElementById('passengerTab').classList.remove('active');
+                document.getElementById('adminLoginForm').style.display = '';
+                document.getElementById('passengerLoginForm').style.display = 'none';
+            };
+            document.getElementById('passengerTab').onclick = function() {
+                this.classList.add('active');
+                document.getElementById('adminTab').classList.remove('active');
+                document.getElementById('adminLoginForm').style.display = 'none';
+                document.getElementById('passengerLoginForm').style.display = '';
+            };
+            // Passenger OTP logic (mock)
+            document.getElementById('sendOTPBtn').onclick = function() {
+                document.querySelector('#passengerLoginForm .otp-group').style.display = '';
+                this.style.display = 'none';
+                document.getElementById('verifyOTPBtn').style.display = '';
+            };
+            // Booking form live data
+            const sourceInput = document.getElementById('source');
+            const destInput = document.getElementById('destination');
+            const dateInput = document.getElementById('date');
+            sourceInput.oninput = function() {
+                document.getElementById('enteredSource').textContent = this.value || '-';
+            };
+            destInput.oninput = function() {
+                document.getElementById('enteredDestination').textContent = this.value || '-';
+            };
+            dateInput.oninput = function() {
+                document.getElementById('enteredDate').textContent = this.value || '-';
+            };
+            </script>
 </body>
 </html>
