@@ -111,8 +111,8 @@
                             <input type="text" id="destination" placeholder="Enter destination station">
                         </div>
                         <div class="form-group">
-                            <label for="date">Date</label>
-                            <input type="date" id="date">
+                            <label for="dateModal">Date</label>
+                            <input type="date" id="dateModal">
                         </div>
                         <button type="submit" class="btn btn-primary">Search Trains</button>
                     </form>
@@ -131,6 +131,14 @@
     <!-- Tracking Section -->
     <section id="tracking" class="tracking">
     <div class="container" style="max-width: 900px;">
+                        <div class="form-group">
+                            <label>Entered Data:</label>
+                            <div id="enteredData" style="background:#f5f7fa;padding:8px 12px;border-radius:5px;font-size:14px;color:#333;">
+                                From: <span id="enteredSourceModal">-</span><br>
+                                To: <span id="enteredDestinationModal">-</span><br>
+                                Date: <span id="enteredDateModal">-</span>
+                            </div>
+                        </div>
             <h2 class="section-title">Track Your Train</h2>
             <div class="tracking-container">
                 <div class="tracking-form">
@@ -174,6 +182,9 @@
                 <button class="tab-btn active" id="adminTab">Admin</button>
                 <button class="tab-btn" id="passengerTab">Passenger</button>
             </div>
+            <div class="demo-cred" style="margin:8px 0;font-size:13px;color:#666;">
+                <strong>Demo admin:</strong> email: <code>admin@example.com</code> / password: <code>Admin@123</code>
+            </div>
             <form id="adminLoginForm" class="login-form">
                 <div class="form-group">
                     <label for="adminEmail">Email</label>
@@ -183,19 +194,33 @@
                     <label for="adminPassword">Password</label>
                     <input type="password" id="adminPassword" placeholder="Enter password" required autocomplete="current-password">
                 </div>
-                <button type="submit" class="btn btn-primary">Login as Admin</button>
+                <button type="submit" class="btn btn-primary animated-btn">Login as Admin</button>
             </form>
             <form id="passengerLoginForm" class="login-form" style="display:none;">
-                <div class="form-group">
-                    <label for="passengerPhone">Phone Number</label>
-                    <input type="tel" id="passengerPhone" placeholder="Enter phone number" required pattern="[0-9]{10}">
+                <div class="form-row" style="display:flex;gap:8px;align-items:center;">
+                    <div class="form-group" style="flex:0 0 120px;">
+                        <label for="countryPrefix">Country</label>
+                        <select id="countryPrefix" class="country-select">
+                            <option value="+91">🇮🇳 +91</option>
+                            <option value="+1">🇺🇸 +1</option>
+                            <option value="+44">🇬🇧 +44</option>
+                            <option value="+61">🇦🇺 +61</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex:1;">
+                        <label for="passengerPhone">Phone Number</label>
+                        <input type="tel" id="passengerPhone" placeholder="9876543210" required pattern="[0-9]{6,15}">
+                    </div>
                 </div>
                 <div class="form-group otp-group" style="display:none;">
-                    <label for="passengerOTP">OTP</label>
+                    <label for="passengerOTP">OTP <small id="otpTimer" style="color:#888;margin-left:8px;">(00:30)</small></label>
                     <input type="text" id="passengerOTP" placeholder="Enter OTP" maxlength="6">
                 </div>
-                <button type="button" class="btn btn-primary" id="sendOTPBtn">Send OTP</button>
-                <button type="submit" class="btn btn-primary" id="verifyOTPBtn" style="display:none;">Verify OTP</button>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button type="button" class="btn btn-primary animated-btn" id="sendOTPBtn">Send OTP</button>
+                    <button type="button" class="btn btn-outline" id="resendOTPBtn" style="display:none;">Resend OTP</button>
+                    <button type="submit" class="btn btn-primary" id="verifyOTPBtn" style="display:none;">Verify OTP</button>
+                </div>
             </form>
         </div>
     </div>
@@ -418,25 +443,76 @@
                 document.getElementById('adminLoginForm').style.display = 'none';
                 document.getElementById('passengerLoginForm').style.display = '';
             };
-            // Passenger OTP logic (mock)
-            document.getElementById('sendOTPBtn').onclick = function() {
-                document.querySelector('#passengerLoginForm .otp-group').style.display = '';
-                this.style.display = 'none';
-                document.getElementById('verifyOTPBtn').style.display = '';
-            };
-            // Booking form live data
-            const sourceInput = document.getElementById('source');
-            const destInput = document.getElementById('destination');
-            const dateInput = document.getElementById('date');
-            sourceInput && (sourceInput.oninput = function() {
-                document.getElementById('enteredSource').textContent = this.value || '-';
-            });
-            destInput && (destInput.oninput = function() {
-                document.getElementById('enteredDestination').textContent = this.value || '-';
-            });
-            dateInput && (dateInput.oninput = function() {
-                document.getElementById('enteredDate').textContent = this.value || '-';
-            });
+            // Passenger OTP logic (mock) with timer and resend
+            (function(){
+                const sendBtn = document.getElementById('sendOTPBtn');
+                const resendBtn = document.getElementById('resendOTPBtn');
+                const verifyBtn = document.getElementById('verifyOTPBtn');
+                const otpGroup = document.querySelector('#passengerLoginForm .otp-group');
+                const otpTimerEl = document.getElementById('otpTimer');
+                let timer = null;
+                let timeLeft = 30;
+                function startTimer(){
+                    timeLeft = 30;
+                    otpTimerEl.textContent = `(00:${timeLeft.toString().padStart(2,'0')})`;
+                    timer = setInterval(()=>{
+                        timeLeft -= 1;
+                        otpTimerEl.textContent = `(00:${timeLeft.toString().padStart(2,'0')})`;
+                        if(timeLeft <= 0){
+                            clearInterval(timer);
+                            resendBtn.style.display = '';
+                            verifyBtn.style.display = 'none';
+                            otpTimerEl.textContent = '(expired)';
+                        }
+                    },1000);
+                }
+                function stopTimer(){ if(timer) clearInterval(timer); timer = null; }
+
+                sendBtn.addEventListener('click', function(){
+                    otpGroup.style.display = '';
+                    sendBtn.style.display = 'none';
+                    resendBtn.style.display = 'none';
+                    verifyBtn.style.display = '';
+                    startTimer();
+                    // mock: store OTP in sessionStorage
+                    sessionStorage.setItem('mock_otp','123456');
+                });
+
+                resendBtn.addEventListener('click', function(){
+                    resendBtn.style.display = 'none';
+                    verifyBtn.style.display = '';
+                    otpGroup.style.display = '';
+                    startTimer();
+                    sessionStorage.setItem('mock_otp','123456');
+                });
+
+                // passenger form submit -> verify OTP
+                document.getElementById('passengerLoginForm').addEventListener('submit', function(e){
+                    e.preventDefault();
+                    const prefix = document.getElementById('countryPrefix').value;
+                    const phone = document.getElementById('passengerPhone').value.trim();
+                    const otp = document.getElementById('passengerOTP').value.trim();
+                    const expected = sessionStorage.getItem('mock_otp');
+                    if(!otp || otp !== expected){
+                        alert('Invalid OTP. (demo OTP is 123456)');
+                        return;
+                    }
+                    stopTimer();
+                    alert('Logged in as passenger: ' + prefix + ' ' + phone);
+                    document.getElementById('loginModal').style.display = 'none';
+                });
+            })();
+            // Booking form live data (main and modal forms)
+            function bindLivePreview(srcId, destId, dateId, targetPrefix){
+                const s = document.getElementById(srcId);
+                const d = document.getElementById(destId);
+                const dt = document.getElementById(dateId);
+                if(s) s.addEventListener('input', ()=>{ const el = document.getElementById(targetPrefix+'Source'); if(el) el.textContent = s.value || '-'; });
+                if(d) d.addEventListener('input', ()=>{ const el = document.getElementById(targetPrefix+'Destination'); if(el) el.textContent = d.value || '-'; });
+                if(dt) dt.addEventListener('input', ()=>{ const el = document.getElementById(targetPrefix+'Date'); if(el) el.textContent = dt.value || '-'; });
+            }
+            bindLivePreview('source','destination','date','entered');
+            bindLivePreview('sourceModal','destinationModal','dateModal','entered');
 
             // Rotate wheels as user scrolls for a more realistic effect
             const wheels = document.querySelectorAll('[data-wheel]');
@@ -470,9 +546,32 @@
                     a.addEventListener('click', function(e) {
                         e.preventDefault();
                         document.getElementById('loginModal').style.display = 'block';
+                        // focus first input for accessibility
+                        setTimeout(()=>{
+                            const input = document.querySelector('#loginModal input');
+                            if(input) input.focus();
+                        },120);
                     });
                 }
             });
+
+            // Admin demo login (client-side check for demo)
+            document.getElementById('adminLoginForm').addEventListener('submit', function(e){
+                e.preventDefault();
+                const email = document.getElementById('adminEmail').value.trim();
+                const pwd = document.getElementById('adminPassword').value;
+                if(email === 'admin@example.com' && pwd === 'Admin@123'){
+                    alert('Admin logged in (demo)');
+                    document.getElementById('loginModal').style.display = 'none';
+                } else {
+                    alert('Invalid admin credentials (demo)');
+                }
+            });
+
+            // Modal close handlers
+            document.querySelectorAll('.modal .close').forEach(btn => btn.addEventListener('click', function(){
+                this.closest('.modal').style.display = 'none';
+            }));
             </script>
 </body>
 </html>

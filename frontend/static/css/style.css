@@ -96,6 +96,32 @@ a:hover {
     color: white;
 }
 
+/* Animated button effect, country selector and OTP visuals */
+.animated-btn{
+    position:relative;
+    overflow:hidden;
+    transition:transform .12s ease, box-shadow .12s ease;
+}
+.animated-btn:active{transform:scale(.98)}
+.animated-btn::after{
+    content:"";
+    position:absolute;
+    top:0;left:-30%;width:40%;height:100%;
+    background:rgba(255,255,255,0.12);
+    transform:skewX(-20deg);
+    transition:left .6s ease;
+}
+.animated-btn:hover::after{left:110%}
+
+.country-select{
+    width:100%;padding:8px;border-radius:6px;border:1px solid #e6e9ee;background:#fff;
+}
+
+.demo-cred code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px}
+
+.otp-group input{letter-spacing:4px}
+
+
 .btn-lg {
     padding: 12px 24px;
     font-size: 18px;
