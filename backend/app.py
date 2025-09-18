@@ -25,6 +25,7 @@ app = Flask(__name__,
 CORS(app)
 
 # Configure MongoDB connection
+# ...existing code...
 try:
     mongo_uri = os.getenv('MONGO_URI', 'mongodb://localhost:27017/railway_reservation')
     client = MongoClient(mongo_uri)
@@ -32,13 +33,16 @@ try:
     print("Connected to MongoDB successfully!")
 except Exception as e:
     print(f"Error connecting to MongoDB: {e}")
+    db = None  # Ensure db is defined
 
-# Import routes after app initialization to avoid circular imports
+# ...existing code...
 from backend.api.routes import register_routes
 
-# Register API routes
-register_routes(app, db)
-
+# Register API routes only if db is available
+if db is not None:
+    register_routes(app, db)
+else:
+    print("API routes not registered due to DB connection failure.")
 # Main route for serving the frontend
 @app.route('/')
 def index():
