@@ -38,19 +38,23 @@
                 </div>
             </div>
             <!-- Animated Train SVG -->
-            <div class="train-animation-wrapper">
-                <svg id="trainSVG" width="220" height="80" viewBox="0 0 220 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="20" y="40" width="120" height="30" rx="8" fill="#3498db"/>
-                  <rect x="140" y="50" width="40" height="20" rx="5" fill="#2ecc71"/>
-                  <circle cx="40" cy="75" r="8" fill="#333"/>
-                  <circle cx="80" cy="75" r="8" fill="#333"/>
-                  <circle cx="120" cy="75" r="8" fill="#333"/>
-                  <circle cx="160" cy="75" r="8" fill="#333"/>
-                  <rect x="30" y="50" width="20" height="10" rx="2" fill="#fff"/>
-                  <rect x="60" y="50" width="20" height="10" rx="2" fill="#fff"/>
-                  <rect x="90" y="50" width="20" height="10" rx="2" fill="#fff"/>
-                </svg>
-            </div>
+                        <div class="train-animation-wrapper">
+                                <svg id="trainSVG" width="360" height="120" viewBox="0 0 360 120" xmlns="http://www.w3.org/2000/svg">
+                                    <!-- Engine -->
+                                    <rect x="10" y="40" width="140" height="50" rx="8" fill="#2c3e50" />
+                                    <rect x="30" y="20" width="80" height="30" rx="6" fill="#3498db" />
+                                    <circle data-wheel="1" cx="40" cy="100" r="10" fill="#222" />
+                                    <circle data-wheel="2" cx="100" cy="100" r="10" fill="#222" />
+                                    <!-- Carriage -->
+                                    <rect x="160" y="55" width="140" height="35" rx="6" fill="#27ae60" />
+                                    <circle data-wheel="3" cx="190" cy="100" r="10" fill="#222" />
+                                    <circle data-wheel="4" cx="280" cy="100" r="10" fill="#222" />
+                                    <!-- windows -->
+                                    <rect x="40" y="25" width="20" height="12" rx="2" fill="#fff" />
+                                    <rect x="66" y="25" width="20" height="12" rx="2" fill="#fff" />
+                                    <rect x="92" y="25" width="20" height="12" rx="2" fill="#fff" />
+                                </svg>
+                        </div>
         </div>
     </section>
 
@@ -346,16 +350,7 @@
                     <h2><i class="fas fa-train"></i> RailConnect</h2>
                     <p>Your trusted railway reservation and tracking platform</p>
                 </div>
-                <div class="footer-links">
-                    <h3>Quick Links</h3>
-                    <ul>
-                        <li><a href="#">Home</a></li>
-                        <li><a href="#booking">Book Tickets</a></li>
-                        <li><a href="#tracking">Track Train</a></li>
-                        <li><a href="#alerts">Alerts</a></li>
-                        <li><a href="#">Contact Us</a></li>
-                    </ul>
-                </div>
+                    <!-- Quick Links removed as requested -->
                 <div class="footer-contact">
                     <h3>Contact Us</h3>
                     <p><i class="fas fa-envelope"></i> info@railconnect.com</p>
@@ -433,15 +428,51 @@
             const sourceInput = document.getElementById('source');
             const destInput = document.getElementById('destination');
             const dateInput = document.getElementById('date');
-            sourceInput.oninput = function() {
+            sourceInput && (sourceInput.oninput = function() {
                 document.getElementById('enteredSource').textContent = this.value || '-';
-            };
-            destInput.oninput = function() {
+            });
+            destInput && (destInput.oninput = function() {
                 document.getElementById('enteredDestination').textContent = this.value || '-';
-            };
-            dateInput.oninput = function() {
+            });
+            dateInput && (dateInput.oninput = function() {
                 document.getElementById('enteredDate').textContent = this.value || '-';
-            };
+            });
+
+            // Rotate wheels as user scrolls for a more realistic effect
+            const wheels = document.querySelectorAll('[data-wheel]');
+            window.addEventListener('scroll', () => {
+                const speed = window.scrollY / 4;
+                wheels.forEach((w, i) => {
+                    w.style.transform = `rotate(${(speed + i * 15) % 360}deg)`;
+                });
+            });
+
+            // Highlight nav link according to scroll position
+            const navLinksArr = document.querySelectorAll('.nav-links a');
+            const sections = document.querySelectorAll('section');
+            function updateActiveNav() {
+                let index = 0;
+                const midpoint = window.scrollY + window.innerHeight / 3;
+                sections.forEach((sec, i) => {
+                    if (sec.offsetTop < midpoint) index = i;
+                });
+                navLinksArr.forEach(a => a.classList.remove('active'));
+                const target = sections[index].id;
+                const link = Array.from(navLinksArr).find(a => a.getAttribute('href') === `#${target}` || (target === '' && a.getAttribute('href') === '/'));
+                if (link) link.classList.add('active');
+            }
+            window.addEventListener('scroll', updateActiveNav);
+            updateActiveNav();
+
+            // Open login modal when /login.html is requested client-side
+            document.querySelectorAll('.nav-links a').forEach(a => {
+                if (a.getAttribute('href') === '/login.html') {
+                    a.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        document.getElementById('loginModal').style.display = 'block';
+                    });
+                }
+            });
             </script>
 </body>
 </html>

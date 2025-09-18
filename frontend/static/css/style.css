@@ -240,6 +240,14 @@ a:hover {
     opacity: 0.9;
 }
 
+/* Train animation wrapper */
+.train-animation-wrapper { text-align: center; margin-top: 30px; }
+
+/* Nav underline indicator for current/hover */
+.nav-links a { position: relative; }
+.nav-links a::after { content: ''; position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 3px; background: var(--primary-color); transition: width 0.25s; }
+.nav-links a:hover::after, .nav-links a.active::after { width: 60%; }
+
 .search-container {
     max-width: 800px;
     margin: 0 auto;
@@ -270,10 +278,10 @@ a:hover {
 .form-group select {
     width: 100%;
     padding: 12px;
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid #e6e9ee;
     border-radius: var(--border-radius);
-    background-color: rgba(255, 255, 255, 0.2);
-    color: white;
+    background-color: #fff;
+    color: #222;
 }
 
 .form-group input::placeholder {
@@ -867,6 +875,12 @@ a:hover {
     opacity: 0.7;
     font-size: 14px;
 }
+
+/* Payment and booking text visibility fix */
+.payment-options input, .payment-options label, .payment-summary p, .booking .section-title { color: #222; }
+
+/* Wheel rotation helpers */
+[data-wheel] { transform-origin: center; }
 
 /* Modal Styles */
 .modal {

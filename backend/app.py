@@ -48,6 +48,14 @@ else:
 def index():
     return render_template('index.html')
 
+# Serve static login page (frontend template)
+@app.route('/login.html')
+def login_page():
+    try:
+        return render_template('login.html')
+    except Exception:
+        return jsonify({"error": "Not found"}), 404
+
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
