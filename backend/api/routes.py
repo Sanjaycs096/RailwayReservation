@@ -4,7 +4,148 @@ import json
 from datetime import datetime
 
 # Function to register all routes
-def register_routes(app, db):
+def register_routes(app, db, socketio=None):
+    # --- Coach Seat Map Endpoints ---
+    @api.route('/api/trains/<train_id>/coaches', methods=['GET'])
+    def get_coaches(train_id):
+        coaches = list(db.coaches.find({'train_id': ObjectId(train_id)}))
+        return jsonify({'coaches': json.loads(json.dumps(coaches, default=str))}), 200
+
+    @api.route('/api/trains/<train_id>/coaches/<coach_number>/seatmap', methods=['GET'])
+    def get_seat_map(train_id, coach_number):
+        coach = db.coaches.find_one({'train_id': ObjectId(train_id), 'coach_number': coach_number})
+        if not coach:
+            return jsonify({'error': 'Coach not found'}), 404
+        return jsonify({'seat_map': coach.get('seat_map', {})}), 200
+
+    @api.route('/api/trains/<train_id>/coaches/<coach_number>/seatmap', methods=['POST'])
+    def update_seat_map(train_id, coach_number):
+        data = request.get_json()
+        seat_map = data.get('seat_map')
+        if seat_map is None:
+            return jsonify({'error': 'Missing seat_map'}), 400
+        result = db.coaches.update_one(
+            {'train_id': ObjectId(train_id), 'coach_number': coach_number},
+            {'$set': {'seat_map': seat_map}}
+        )
+        if result.matched_count == 0:
+            return jsonify({'error': 'Coach not found'}), 404
+        return jsonify({'message': 'Seat map updated'}), 200
+
+    # --- Seat Selection/Locking ---
+    @api.route('/api/bookings/lock', methods=['POST'])
+    def lock_seat():
+        data = request.get_json()
+        required_fields = ['train_id', 'coach_number', 'seat_number']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        # Lock seat (set as unavailable in seat_map)
+        coach = db.coaches.find_one({'train_id': ObjectId(data['train_id']), 'coach_number': data['coach_number']})
+        if not coach:
+            return jsonify({'error': 'Coach not found'}), 404
+        seat_map = coach.get('seat_map', {})
+        if seat_map.get(data['seat_number']) == 'unavailable':
+            return jsonify({'error': 'Seat already locked'}), 409
+        seat_map[data['seat_number']] = 'unavailable'
+        db.coaches.update_one({'_id': coach['_id']}, {'$set': {'seat_map': seat_map}})
+        return jsonify({'message': 'Seat locked'}), 200
+
+    # --- Booking Cancellation ---
+    @api.route('/api/bookings/<booking_id>/cancel', methods=['POST'])
+    def cancel_booking(booking_id):
+        booking = db.bookings.find_one({'_id': ObjectId(booking_id)})
+        if not booking:
+            return jsonify({'error': 'Booking not found'}), 404
+        db.bookings.update_one({'_id': ObjectId(booking_id)}, {'$set': {'status': 'cancelled'}})
+        # Release seats in coach seat_map
+        train_id = booking['train_id']
+        for seat in booking['seats']:
+            coach_number, seat_number = seat.split('-')  # e.g., 'A1-12'
+            coach = db.coaches.find_one({'train_id': train_id, 'coach_number': coach_number})
+            if coach:
+                seat_map = coach.get('seat_map', {})
+                seat_map[seat_number] = 'available'
+                db.coaches.update_one({'_id': coach['_id']}, {'$set': {'seat_map': seat_map}})
+        return jsonify({'message': 'Booking cancelled and seats released'}), 200
+
+    # --- Quota Management ---
+    @api.route('/api/quotas/<train_id>/<coach_number>', methods=['GET'])
+    def get_quota(train_id, coach_number):
+        quotas = list(db.quotas.find({'train_id': ObjectId(train_id), 'coach_number': coach_number}))
+        return jsonify({'quotas': json.loads(json.dumps(quotas, default=str))}), 200
+
+    @api.route('/api/quotas/<train_id>/<coach_number>', methods=['POST'])
+    def update_quota(train_id, coach_number):
+        data = request.get_json()
+        required_fields = ['quota_type', 'total_seats', 'available_seats']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        db.quotas.update_one(
+            {'train_id': ObjectId(train_id), 'coach_number': coach_number, 'quota_type': data['quota_type']},
+            {'$set': {'total_seats': data['total_seats'], 'available_seats': data['available_seats'], 'updated_at': datetime.utcnow()}},
+            upsert=True
+        )
+        return jsonify({'message': 'Quota updated'}), 200
+
+    # --- Real-Time Coach Position ---
+    @api.route('/api/coach_positions/<train_id>', methods=['GET'])
+    def get_coach_positions(train_id):
+        positions = list(db.coach_positions.find({'train_id': ObjectId(train_id)}))
+        return jsonify({'positions': json.loads(json.dumps(positions, default=str))}), 200
+
+    @api.route('/api/coach_positions/<train_id>/<coach_number>', methods=['POST'])
+    def update_coach_position(train_id, coach_number):
+        data = request.get_json()
+        required_fields = ['platform_number', 'position_on_platform', 'station', 'eta']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        update_doc = {
+            'platform_number': data['platform_number'],
+            'position_on_platform': data['position_on_platform'],
+            'station': data['station'],
+            'eta': data['eta'],
+            'updated_at': datetime.utcnow()
+        }
+        db.coach_positions.update_one(
+            {'train_id': ObjectId(train_id), 'coach_number': coach_number},
+            {'$set': update_doc},
+            upsert=True
+        )
+        # Emit real-time update if socketio is available
+        if socketio:
+            socketio.emit('coach_position_update', {
+                'train_id': str(train_id),
+                'coach_number': coach_number,
+                **update_doc
+            }, broadcast=True)
+        return jsonify({'message': 'Coach position updated'}), 200
+
+    # --- Route Deviation Alerts ---
+    @api.route('/api/alerts/route_deviation', methods=['POST'])
+    def create_route_deviation_alert():
+        data = request.get_json()
+        required_fields = ['train_id', 'message']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'Missing required field: {field}'}), 400
+        new_alert = {
+            'train_id': ObjectId(data['train_id']),
+            'message': data['message'],
+            'type': 'route_deviation',
+            'created_at': datetime.utcnow()
+        }
+        result = db.alerts.insert_one(new_alert)
+        # Emit real-time alert if socketio is available
+        if socketio:
+            socketio.emit('route_deviation_alert', {
+                'train_id': data['train_id'],
+                'message': data['message'],
+                'alert_id': str(result.inserted_id)
+            }, broadcast=True)
+        return jsonify({'message': 'Route deviation alert created', 'alert_id': str(result.inserted_id)}), 201
     # Create API blueprint
     api = Blueprint('api', __name__)
     

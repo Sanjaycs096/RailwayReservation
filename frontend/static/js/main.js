@@ -1,6 +1,63 @@
 // Railway Reservation & Tracking Platform - Main JavaScript
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize real-time updates
+    initRealtimeUpdates();
+// Real-time updates using Socket.IO
+function initRealtimeUpdates() {
+    // Load Socket.IO client script dynamically if not present
+    if (typeof io === 'undefined') {
+        const script = document.createElement('script');
+        script.src = 'https://cdn.socket.io/4.7.4/socket.io.min.js';
+        script.onload = connectSocketIO;
+        document.head.appendChild(script);
+    } else {
+        connectSocketIO();
+    }
+}
+
+function connectSocketIO() {
+    // Connect to backend Socket.IO server (auto-detect host)
+    let socket;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        socket = io('http://localhost:5000');
+    } else {
+        socket = io(); // Use same host/port as frontend
+    }
+
+    // Listen for coach position updates
+    socket.on('coach_position_update', function(data) {
+        // Show alert and update UI if needed
+        showAlert(`Coach ${data.coach_number} position updated: Platform ${data.platform_number}, ${data.position_on_platform} at ${data.station} (ETA: ${data.eta})`, 'info');
+        // Optionally update a live coach/platform display here
+        updateCoachPositionDisplay(data);
+    });
+
+    // Listen for route deviation alerts
+    socket.on('route_deviation_alert', function(data) {
+        showAlert(`Route Deviation Alert: ${data.message}`, 'error');
+        // Optionally update a live alert area here
+        updateRouteDeviationAlertDisplay(data);
+    });
+}
+
+// Update coach/platform display (implement as needed)
+function updateCoachPositionDisplay(data) {
+    // Example: update a div with id 'coach-position-info'
+    const el = document.getElementById('coach-position-info');
+    if (el) {
+        el.innerHTML = `<strong>Coach ${data.coach_number}</strong> at <strong>Platform ${data.platform_number}</strong>, <em>${data.position_on_platform}</em> (${data.station}) ETA: ${data.eta}`;
+    }
+}
+
+// Update route deviation alert display (implement as needed)
+function updateRouteDeviationAlertDisplay(data) {
+    // Example: update a div with id 'route-alert-info'
+    const el = document.getElementById('route-alert-info');
+    if (el) {
+        el.innerHTML = `<span style="color:#e74c3c;font-weight:bold;">Route Deviation: ${data.message}</span>`;
+    }
+}
     // Initialize mobile menu
     initMobileMenu();
     

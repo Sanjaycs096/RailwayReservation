@@ -1,5 +1,7 @@
+
 from flask import Flask, jsonify, request, render_template
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit
 from pymongo import MongoClient
 import os
 from dotenv import load_dotenv
@@ -16,6 +18,7 @@ class JSONEncoder(json.JSONEncoder):
             return str(o)
         return json.JSONEncoder.default(self, o)
 
+
 # Initialize Flask app
 app = Flask(__name__, 
             static_folder='../frontend/static',
@@ -23,6 +26,9 @@ app = Flask(__name__,
 
 # Enable CORS
 CORS(app)
+
+# Initialize SocketIO for real-time updates
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Configure MongoDB connection
 # ...existing code...
@@ -40,7 +46,7 @@ from backend.api.routes import register_routes
 
 # Register API routes only if db is available
 if db is not None:
-    register_routes(app, db)
+    register_routes(app, db, socketio)
 else:
     print("API routes not registered due to DB connection failure.")
 # Main route for serving the frontend
@@ -68,4 +74,4 @@ def server_error(error):
 # Run the application
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)

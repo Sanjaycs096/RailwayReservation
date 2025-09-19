@@ -24,8 +24,50 @@
 </form>
 <div id="trainMsg" style="color:green;font-weight:500;margin:10px 0 20px 0;display:none;">Train added!</div>
 
+
 <h3>All Trains</h3>
-<table id="trainsTable" border="1" style="width:100%;margin-bottom:30px;"><thead><tr><th>Name</th><th>From</th><th>To</th><th>Departure</th><th>Arrival</th><th>Total Seats</th></tr></thead><tbody></tbody></table>
+<table id="trainsTable" border="1" style="width:100%;margin-bottom:30px;"><thead><tr><th>Name</th><th>From</th><th>To</th><th>Departure</th><th>Arrival</th><th>Total Seats</th><th>Manage Coaches</th><th>Update Position</th></tr></thead><tbody></tbody></table>
+
+<div id="coachModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.2);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;padding:24px 20px;border-radius:8px;max-width:400px;width:100%;position:relative;">
+        <span class="close" style="position:absolute;top:8px;right:12px;cursor:pointer;font-size:22px;">&times;</span>
+        <h3>Manage Coaches</h3>
+        <form id="coachForm">
+            <div class="form-group"><label>Coach Number</label><input id="coachNumber" required></div>
+            <div class="form-group"><label>Coach Type</label><input id="coachType" required></div>
+            <div class="form-group"><label>Total Seats</label><input id="coachSeats" type="number" min="1" value="40" required></div>
+            <div class="form-group"><label>Seat Map (comma separated, e.g. 1,2,3...)</label><input id="seatMap" placeholder="1,2,3,4,5,6,7,8"></div>
+            <button class="btn btn-primary" type="submit">Save Coach</button>
+        </form>
+        <div id="coachMsg" style="color:green;font-weight:500;margin:10px 0 0 0;display:none;">Coach updated!</div>
+    </div>
+</div>
+
+<div id="positionModal" class="modal" style="display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.2);z-index:1000;align-items:center;justify-content:center;">
+    <div style="background:#fff;padding:24px 20px;border-radius:8px;max-width:400px;width:100%;position:relative;">
+        <span class="close" style="position:absolute;top:8px;right:12px;cursor:pointer;font-size:22px;">&times;</span>
+        <h3>Update Coach Position</h3>
+        <form id="positionForm">
+            <div class="form-group"><label>Coach Number</label><input id="posCoachNumber" required></div>
+            <div class="form-group"><label>Platform Number</label><input id="platformNumber" required></div>
+            <div class="form-group"><label>Position on Platform</label><input id="positionOnPlatform" required placeholder="front/middle/rear or meters"></div>
+            <div class="form-group"><label>Station</label><input id="stationName" required></div>
+            <div class="form-group"><label>ETA</label><input id="eta" required placeholder="12:30 PM"></div>
+            <button class="btn btn-primary" type="submit">Update Position</button>
+        </form>
+        <div id="positionMsg" style="color:green;font-weight:500;margin:10px 0 0 0;display:none;">Position updated!</div>
+    </div>
+</div>
+
+<div style="margin:30px 0 10px 0;padding:12px 16px;background:#f8d7da;border-radius:6px;">
+    <h3>Send Route Deviation Alert</h3>
+    <form id="alertForm" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input id="alertTrainId" placeholder="Train ID" style="flex:1;min-width:120px;">
+        <input id="alertMsg" placeholder="Alert message" style="flex:2;min-width:180px;">
+        <button class="btn btn-danger" type="submit">Send Alert</button>
+    </form>
+    <div id="alertMsgBox" style="color:green;font-weight:500;margin:8px 0 0 0;display:none;">Alert sent!</div>
+</div>
 
 <h3>All Bookings (Demo)</h3>
 <table id="bookingsTable" border="1" style="width:100%;"><thead><tr><th>User ID</th><th>Train</th><th>Seats</th><th>Date</th><th>Status</th></tr></thead><tbody></tbody></table>
@@ -55,8 +97,81 @@ async function fetchTrains(){
 }
 async function renderTrains(){
     const trains = await fetchTrains();
-    trainsTable.innerHTML = trains.length ? trains.map(t=>`<tr><td>${t.name}</td><td>${t.source||t.from}</td><td>${t.destination||t.to}</td><td>${t.departure_time||t.departure}</td><td>${t.arrival_time||'-'}</td><td>${t.total_seats||'-'}</td></tr>`).join('') : '<tr><td colspan="6">No trains added</td></tr>';
+    trainsTable.innerHTML = trains.length ? trains.map(t=>`<tr><td>${t.name}</td><td>${t.source||t.from}</td><td>${t.destination||t.to}</td><td>${t.departure_time||t.departure}</td><td>${t.arrival_time||'-'}</td><td>${t.total_seats||'-'}</td><td><button class='btn btn-sm btn-primary' onclick='openCoachModal("${t._id}")'>Manage</button></td><td><button class='btn btn-sm btn-secondary' onclick='openPositionModal("${t._id}")'>Update</button></td></tr>`).join('') : '<tr><td colspan="8">No trains added</td></tr>';
 }
+// --- Coach Modal Logic ---
+window.openCoachModal = function(trainId){
+    const modal = document.getElementById('coachModal');
+    modal.style.display = 'flex';
+    modal.setAttribute('data-train', trainId);
+    document.getElementById('coachMsg').style.display = 'none';
+}
+document.querySelector('#coachModal .close').onclick = function(){ document.getElementById('coachModal').style.display = 'none'; };
+document.getElementById('coachForm').onsubmit = async function(e){
+    e.preventDefault();
+    const trainId = document.getElementById('coachModal').getAttribute('data-train');
+    const coach_number = document.getElementById('coachNumber').value.trim();
+    const coach_type = document.getElementById('coachType').value.trim();
+    const total_seats = parseInt(document.getElementById('coachSeats').value,10)||40;
+    const seat_map = {};
+    (document.getElementById('seatMap').value||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(s=>seat_map[s]='available');
+    const res = await fetch(`/api/trains/${trainId}/coaches/${coach_number}/seatmap`,{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seat_map,coach_type,total_seats})
+    });
+    if(res.ok){
+        document.getElementById('coachMsg').style.display = 'block';
+        setTimeout(()=>{document.getElementById('coachMsg').style.display = 'none';},2000);
+        document.getElementById('coachForm').reset();
+    }else{
+        alert('Failed to update coach');
+    }
+};
+
+// --- Position Modal Logic ---
+window.openPositionModal = function(trainId){
+    const modal = document.getElementById('positionModal');
+    modal.style.display = 'flex';
+    modal.setAttribute('data-train', trainId);
+    document.getElementById('positionMsg').style.display = 'none';
+}
+document.querySelector('#positionModal .close').onclick = function(){ document.getElementById('positionModal').style.display = 'none'; };
+document.getElementById('positionForm').onsubmit = async function(e){
+    e.preventDefault();
+    const trainId = document.getElementById('positionModal').getAttribute('data-train');
+    const coach_number = document.getElementById('posCoachNumber').value.trim();
+    const platform_number = document.getElementById('platformNumber').value.trim();
+    const position_on_platform = document.getElementById('positionOnPlatform').value.trim();
+    const station = document.getElementById('stationName').value.trim();
+    const eta = document.getElementById('eta').value.trim();
+    const res = await fetch(`/api/coach_positions/${trainId}/${coach_number}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({platform_number,position_on_platform,station,eta})
+    });
+    if(res.ok){
+        document.getElementById('positionMsg').style.display = 'block';
+        setTimeout(()=>{document.getElementById('positionMsg').style.display = 'none';},2000);
+        document.getElementById('positionForm').reset();
+    }else{
+        alert('Failed to update position');
+    }
+};
+
+// --- Route Deviation Alert Logic ---
+document.getElementById('alertForm').onsubmit = async function(e){
+    e.preventDefault();
+    const train_id = document.getElementById('alertTrainId').value.trim();
+    const message = document.getElementById('alertMsg').value.trim();
+    if(!train_id||!message){alert('Fill all fields');return;}
+    const res = await fetch('/api/alerts/route_deviation',{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({train_id,message})
+    });
+    if(res.ok){
+        document.getElementById('alertMsgBox').style.display = 'block';
+        setTimeout(()=>{document.getElementById('alertMsgBox').style.display = 'none';},2000);
+        document.getElementById('alertForm').reset();
+    }else{
+        alert('Failed to send alert');
+    }
+};
 async function fetchBookings(){
     // For demo, fetch all bookings (requires backend endpoint for all bookings, else show none)
     const res = await fetch('/api/bookings/all').catch(()=>null);
