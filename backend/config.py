@@ -12,7 +12,7 @@ class Config:
     TESTING = False
     
     # MongoDB settings
-    MONGO_URI = os.getenv('MONGO_URI', 'mongodb://localhost:27017/railway_reservation')
+    MONGO_URI = os.getenv('MONGO_URI', 'mongodb+srv://sanjaykumarmmkce_db_user:F3E8UGKtVS0Hm3o6@railwayreservation.fldv1wj.mongodb.net/RailwayReservation?retryWrites=true&w=majority')
     
     # JWT settings
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
