@@ -5,6 +5,9 @@ from datetime import datetime
 
 # Function to register all routes
 def register_routes(app, db):
+    # Create API blueprint FIRST so 'api' is defined before use
+    api = Blueprint('api', __name__)
+
     # --- Coach Seat Map Endpoints ---
     @api.route('/api/trains/<train_id>/coaches', methods=['GET'])
     def get_coaches(train_id):
@@ -132,8 +135,7 @@ def register_routes(app, db):
         }
         result = db.alerts.insert_one(new_alert)
         return jsonify({'message': 'Route deviation alert created', 'alert_id': str(result.inserted_id)}), 201
-    # Create API blueprint
-    api = Blueprint('api', __name__)
+
     
     # User routes
     @api.route('/api/users/register', methods=['POST'])
