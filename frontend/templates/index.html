@@ -436,6 +436,7 @@
                     document.getElementById('loginModal').style.display = 'none';
                 });
             })();
+
             // Booking form live data (main and modal forms)
             function bindLivePreview(srcId, destId, dateId, targetPrefix){
                 const s = document.getElementById(srcId);
@@ -447,6 +448,52 @@
             }
             bindLivePreview('source','destination','date','entered');
             bindLivePreview('sourceModal','destinationModal','dateModal','enteredModal');
+
+            // --- Train search and booking logic ---
+            function getTrains(){
+                return JSON.parse(localStorage.getItem('trains')||'[]');
+            }
+            function getBookings(){
+                return JSON.parse(localStorage.getItem('bookings')||'[]');
+            }
+            function setBookings(bookings){
+                localStorage.setItem('bookings',JSON.stringify(bookings));
+            }
+            // Booking search
+            document.getElementById('trainSearchForm').onsubmit = function(e){
+                e.preventDefault();
+                const from = document.getElementById('source').value.trim().toLowerCase();
+                const to = document.getElementById('destination').value.trim().toLowerCase();
+                const date = document.getElementById('date').value;
+                const trainList = document.getElementById('trainList');
+                const trains = getTrains().filter(t=>t.from.toLowerCase()===from && t.to.toLowerCase()===to);
+                if(trains.length){
+                    trainList.innerHTML = trains.map(t=>`<div class="train-item"><b>${t.name}</b> | Departure: ${t.departure} <button class='btn btn-sm btn-primary' onclick='bookTrain("${t.name}","${t.from}","${t.to}","${date}")'>Book</button></div>`).join('');
+                }else{
+                    trainList.innerHTML = '<div class="no-trains">No trains found for this route</div>';
+                }
+            }
+            // Book train (demo)
+            window.bookTrain = function(name,from,to,date){
+                const passenger = sessionStorage.getItem('role')==='passenger' ? 'Passenger' : 'Guest';
+                const bookings = getBookings();
+                bookings.push({passenger,train:name,from,to,date});
+                setBookings(bookings);
+                alert('Booking successful for '+name);
+            }
+            // Tracking logic
+            document.getElementById('trackingForm').onsubmit = function(e){
+                e.preventDefault();
+                const trainName = document.getElementById('trainNumber').value.trim().toLowerCase();
+                const info = document.getElementById('trackingInfo');
+                const trains = getTrains();
+                const t = trains.find(t=>t.name.toLowerCase()===trainName);
+                if(t){
+                    info.innerHTML = `<div class='train-info'><b>${t.name}</b><br>From: ${t.from}<br>To: ${t.to}<br>Departure: ${t.departure}</div>`;
+                }else{
+                    info.innerHTML = '<div class="no-tracking">Train not found</div>';
+                }
+            }
 
 
 
