@@ -492,10 +492,8 @@
                     sessionStorage.setItem('role','admin');
                     alert('Admin logged in (demo)');
                     document.getElementById('loginModal').style.display = 'none';
-                    // optional: redirect to admin dashboard if exists
-                    if(location.pathname !== '/admin.html'){
-                        window.location.href = '/admin.html';
-                    }
+                    // redirect to static admin page for Vercel
+                    window.location.href = '/static/admin.html';
                 } else {
                     alert('Invalid admin credentials (demo)');
                 }

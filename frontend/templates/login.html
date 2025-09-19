@@ -125,7 +125,7 @@
         if(email === 'admin@example.com' && password === 'Admin@123'){
             sessionStorage.setItem('role','admin');
             alert('Admin logged in (demo)');
-            window.location.href = '/admin.html';
+            window.location.href = '/static/admin.html';
             return;
         }
         alert('Invalid admin credentials (demo)');
@@ -150,7 +150,7 @@
         // mark session as passenger
         sessionStorage.setItem('role','passenger');
         alert('Passenger logged in (demo)');
-        window.location.href = '/index.html';
+    window.location.href = '/index.html';
     };
     </script>
 </body>
