@@ -1,0 +1,143 @@
+/* Train animations for home page and booking page */
+
+/* Left to right animation for home page */
+.train-animation-wrapper {
+    position: relative;
+    width: 100%;
+    height: 120px;
+    overflow: hidden;
+    margin: 20px 0;
+}
+
+#trainSVG {
+    position: absolute;
+    left: -360px;
+    animation: trainMoveRightToLeft 20s linear infinite;
+}
+
+@keyframes trainMoveRightToLeft {
+    0% {
+        left: -360px;
+    }
+    100% {
+        left: 100%;
+    }
+}
+
+/* Right to left animation for booking page */
+.booking-train-wrapper {
+    position: sticky;
+    top: 20px;
+    width: 100%;
+    height: 80px;
+    overflow: hidden;
+    margin: 20px 0;
+    z-index: 1;
+}
+
+#bookingTrainSVG {
+    position: absolute;
+    right: -300px;
+    animation: trainMoveLeftToRight 15s linear infinite;
+}
+
+@keyframes trainMoveLeftToRight {
+    0% {
+        right: -300px;
+    }
+    100% {
+        right: 100%;
+    }
+}
+
+/* Wheel rotation animation */
+[data-wheel] {
+    transform-origin: center;
+    animation: wheelRotate 2s linear infinite;
+}
+
+@keyframes wheelRotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* Smoke animation for engine */
+.smoke {
+    opacity: 0;
+    fill: #95a5a6;
+    animation: smokeEffect 3s ease-out infinite;
+}
+
+@keyframes smokeEffect {
+    0% {
+        transform: translateY(0) scale(1);
+        opacity: 0.8;
+    }
+    100% {
+        transform: translateY(-30px) scale(2);
+        opacity: 0;
+    }
+}
+
+/* Parallax effect for landscape elements */
+.landscape {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    height: 20px;
+    background: #27ae60;
+    z-index: -1;
+}
+
+.mountains {
+    position: absolute;
+    bottom: 20px;
+    width: 100%;
+    height: 40px;
+    z-index: -2;
+}
+
+.mountain {
+    position: absolute;
+    bottom: 0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-bottom: 40px solid #95a5a6;
+}
+
+/* Scroll-triggered animations */
+.scroll-reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.scroll-reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Train speed up on scroll */
+.speed-up {
+    animation-duration: 8s !important;
+}
+
+/* Landscape transition effects */
+.day-night-transition {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(to bottom, rgba(25, 25, 112, 0), rgba(25, 25, 112, 0.5));
+    opacity: 0;
+    transition: opacity 2s ease;
+}
+
+.night-mode .day-night-transition {
+    opacity: 1;
+}

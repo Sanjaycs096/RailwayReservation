@@ -23,25 +23,34 @@
         </div>
     </header>
     <main style="min-height: 80vh; display: flex; align-items: center; justify-content: center;">
-        <div class="modal-content" style="max-width: 400px; width: 100%; margin: 60px auto;">
+        <div class="modal-content" style="max-width: 420px; width: 100%; margin: 60px auto;">
             <h2 style="text-align:center;">Login</h2>
-            <form id="loginForm">
+            <div class="login-tabs">
+                <button class="tab-btn active" id="adminTab">Admin</button>
+                <button class="tab-btn" id="passengerTab">Passenger</button>
+            </div>
+            <form id="adminLoginForm" class="login-form">
                 <div class="form-group">
-                    <label for="role">Login as</label>
-                    <select id="role" required>
-                        <option value="passenger">Passenger</option>
-                        <option value="admin">Admin</option>
-                    </select>
+                    <label for="adminEmail">Email</label>
+                    <input type="email" id="adminEmail" placeholder="Enter admin email" required autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" placeholder="Enter your email" required autocomplete="username">
+                    <label for="adminPassword">Password</label>
+                    <input type="password" id="adminPassword" placeholder="Enter password" required autocomplete="current-password">
                 </div>
+                <button type="submit" class="btn btn-primary">Login as Admin</button>
+            </form>
+            <form id="passengerLoginForm" class="login-form" style="display:none;">
                 <div class="form-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" placeholder="Enter your password" required autocomplete="current-password">
+                    <label for="passengerPhone">Phone Number</label>
+                    <input type="tel" id="passengerPhone" placeholder="Enter phone number" required pattern="[0-9]{10}">
                 </div>
-                <button type="submit" class="btn btn-primary" style="width:100%;">Login</button>
+                <div class="form-group otp-group" style="display:none;">
+                    <label for="passengerOTP">OTP</label>
+                    <input type="text" id="passengerOTP" placeholder="Enter OTP" maxlength="6">
+                </div>
+                <button type="button" class="btn btn-primary" id="sendOTPBtn">Send OTP</button>
+                <button type="submit" class="btn btn-primary" id="verifyOTPBtn" style="display:none;">Verify OTP</button>
             </form>
             <p style="text-align:center; margin-top: 15px;">Don't have an account? <a href="#" id="registerLink">Register</a></p>
         </div>
@@ -60,5 +69,75 @@
         </div>
     </footer>
     <script src="../static/js/main.js"></script>
+    <script>
+    // Tab switching for login page
+    document.getElementById('adminTab').onclick = function() {
+        this.classList.add('active');
+        document.getElementById('passengerTab').classList.remove('active');
+        document.getElementById('adminLoginForm').style.display = '';
+        document.getElementById('passengerLoginForm').style.display = 'none';
+    };
+    
+    document.getElementById('passengerTab').onclick = function() {
+        this.classList.add('active');
+        document.getElementById('adminTab').classList.remove('active');
+        document.getElementById('adminLoginForm').style.display = 'none';
+        document.getElementById('passengerLoginForm').style.display = '';
+    };
+    
+    // OTP functionality for passenger login
+    document.getElementById('sendOTPBtn').onclick = function() {
+        const phoneNumber = document.getElementById('passengerPhone').value;
+        if(phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
+            alert('Please enter a valid 10-digit phone number');
+            return;
+        }
+        
+        // Simulate OTP sending - store mock OTP in session
+        sessionStorage.setItem('mock_otp', '123456');
+        alert('OTP sent to ' + phoneNumber + ' (For testing, use: 123456)');
+        document.querySelector('.otp-group').style.display = '';
+        this.style.display = 'none';
+        document.getElementById('verifyOTPBtn').style.display = '';
+    };
+    
+    // Admin login functionality
+    document.getElementById('adminLoginForm').onsubmit = function(e) {
+        e.preventDefault();
+        const email = document.getElementById('adminEmail').value;
+        const password = document.getElementById('adminPassword').value;
+        
+        // Simple validation
+        if(!email || !password) {
+            alert('Please enter both email and password');
+            return;
+        }
+        
+        // For demo purposes, accept any admin email/password
+        // In a real app, you would verify credentials with the server
+        window.location.href = '/frontend/templates/admin.html';
+    };
+    
+    // Passenger login with OTP verification
+    document.getElementById('verifyOTPBtn').onclick = function(e) {
+        e.preventDefault();
+        const otp = document.getElementById('passengerOTP').value;
+        
+        if(!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
+            alert('Please enter a valid 6-digit OTP');
+            return;
+        }
+        
+        // Verify OTP against stored mock OTP
+        const mockOtp = sessionStorage.getItem('mock_otp') || '123456';
+        if(otp !== mockOtp) {
+            alert('Invalid OTP. Please try again.');
+            return;
+        }
+        
+        // Redirect to passenger dashboard after successful verification
+        window.location.href = '/frontend/templates/index.html';
+    };
+    </script>
 </body>
 </html>

@@ -354,13 +354,8 @@ function initSeatSelection() {
             // Close seat selection modal
             seatSelectionModal.style.display = 'none';
             
-            // Open payment modal
-            const paymentModal = document.getElementById('paymentModal');
-            if (paymentModal) {
-                paymentModal.style.display = 'block';
-                // Update payment modal with booking summary
-                updatePaymentModal();
-            }
+            // Redirect to payment page instead of showing modal
+            window.location.href = 'payment.html';
         });
     }
 }

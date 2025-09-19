@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Railway Reservation & Tracking Platform</title>
     <link rel="stylesheet" href="../static/css/style.css">
+    <link rel="stylesheet" href="../static/css/animations.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
@@ -37,22 +38,11 @@
                     <a href="#tracking" class="btn btn-secondary">Track Train</a>
                 </div>
             </div>
-            <!-- Animated Train SVG -->
-                        <div class="train-animation-wrapper">
-                                <svg id="trainSVG" width="360" height="120" viewBox="0 0 360 120" xmlns="http://www.w3.org/2000/svg">
-                                    <!-- Engine -->
-                                    <rect x="10" y="40" width="140" height="50" rx="8" fill="#2c3e50" />
-                                    <rect x="30" y="20" width="80" height="30" rx="6" fill="#3498db" />
-                                    <circle data-wheel="1" cx="40" cy="100" r="10" fill="#222" />
-                                    <circle data-wheel="2" cx="100" cy="100" r="10" fill="#222" />
-                                    <!-- Carriage -->
-                                    <rect x="160" y="55" width="140" height="35" rx="6" fill="#27ae60" />
-                                    <circle data-wheel="3" cx="190" cy="100" r="10" fill="#222" />
-                                    <circle data-wheel="4" cx="280" cy="100" r="10" fill="#222" />
-                                    <!-- windows -->
-                                    <rect x="40" y="25" width="20" height="12" rx="2" fill="#fff" />
-                                    <rect x="66" y="25" width="20" height="12" rx="2" fill="#fff" />
-                                    <rect x="92" y="25" width="20" height="12" rx="2" fill="#fff" />
+
+                                    <circle cx="200" cy="20" r="1" fill="#fff" />
+                                    <circle cx="280" cy="15" r="1" fill="#fff" />
+                                    <circle cx="330" cy="25" r="1" fill="#fff" />
+                                    <path d="M300,20 a15,15 0 0,1 20,0 a15,15 0 0,1 -20,0" fill="#f1c40f" />
                                 </svg>
                         </div>
         </div>
@@ -182,9 +172,7 @@
                 <button class="tab-btn active" id="adminTab">Admin</button>
                 <button class="tab-btn" id="passengerTab">Passenger</button>
             </div>
-            <div class="demo-cred" style="margin:8px 0;font-size:13px;color:#666;">
-                <strong>Demo admin:</strong> email: <code>admin@example.com</code> / password: <code>Admin@123</code>
-            </div>
+
             <form id="adminLoginForm" class="login-form">
                 <div class="form-group">
                     <label for="adminEmail">Email</label>
@@ -302,43 +290,6 @@
                 </div>
             </div>
                 </div>
-                <div class="payment-option">
-                    <input type="radio" id="upi" name="paymentMethod" value="upi">
-                    <label for="upi">UPI</label>
-                </div>
-            </div>
-            <form id="paymentForm">
-                <div id="cardPaymentFields">
-                    <div class="form-group">
-                        <label for="cardNumber">Card Number</label>
-                        <input type="text" id="cardNumber" placeholder="1234 5678 9012 3456">
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="expiryDate">Expiry Date</label>
-                            <input type="text" id="expiryDate" placeholder="MM/YY">
-                        </div>
-                        <div class="form-group">
-                            <label for="cvv">CVV</label>
-                            <input type="text" id="cvv" placeholder="123">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="cardName">Name on Card</label>
-                        <input type="text" id="cardName" placeholder="John Doe">
-                    </div>
-                </div>
-                <div id="upiPaymentFields" style="display: none;">
-                    <div class="form-group">
-                        <label for="upiId">UPI ID</label>
-                        <input type="text" id="upiId" placeholder="example@upi">
-                    </div>
-                </div>
-                <div class="payment-summary">
-                    <p>Total Amount: ₹<span id="paymentAmount">0</span></p>
-                </div>
-                <button type="submit" class="btn btn-primary">Pay Now</button>
-            </form>
         </div>
     </div>
 
@@ -401,25 +352,7 @@
         <!-- JavaScript -->
             <script src="../static/js/main.js"></script>
             <script>
-            // Train animation: move train SVG between sections as you scroll
-            window.addEventListener('scroll', function() {
-                const train = document.getElementById('trainSVG');
-                if (train) {
-                    const hero = document.querySelector('.hero');
-                    const features = document.querySelector('.features');
-                    const booking = document.getElementById('booking');
-                    const tracking = document.getElementById('tracking');
-                    const alerts = document.getElementById('alerts');
-                    const sections = [hero, features, booking, tracking, alerts];
-                    let sectionIndex = 0;
-                    let scrollY = window.scrollY + window.innerHeight/2;
-                    for (let i = 0; i < sections.length; i++) {
-                        if (sections[i].offsetTop < scrollY) sectionIndex = i;
-                    }
-                    train.style.transform = `translateX(${sectionIndex * 18}vw)`;
-                    train.style.transition = 'transform 0.5s cubic-bezier(.4,2,.6,1)';
-                }
-            });
+
             // Mobile nav toggle
             const menuBtn = document.querySelector('.mobile-menu-btn');
             const navLinks = document.querySelector('.nav-links');
@@ -514,14 +447,7 @@
             bindLivePreview('source','destination','date','entered');
             bindLivePreview('sourceModal','destinationModal','dateModal','entered');
 
-            // Rotate wheels as user scrolls for a more realistic effect
-            const wheels = document.querySelectorAll('[data-wheel]');
-            window.addEventListener('scroll', () => {
-                const speed = window.scrollY / 4;
-                wheels.forEach((w, i) => {
-                    w.style.transform = `rotate(${(speed + i * 15) % 360}deg)`;
-                });
-            });
+
 
             // Highlight nav link according to scroll position
             const navLinksArr = document.querySelectorAll('.nav-links a');
