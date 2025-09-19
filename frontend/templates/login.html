@@ -101,6 +101,14 @@
         document.getElementById('verifyOTPBtn').style.display = '';
     };
     
+    // simple timer/resend behavior (optional)
+    (function(){
+        const otpTimerEl = document.querySelector('.otp-group small') || null;
+        let t = null; let left = 30;
+        function start(){ left=30; if(otpTimerEl) otpTimerEl.textContent=`(00:${String(left).padStart(2,'0')})`; t=setInterval(()=>{ left--; if(otpTimerEl) otpTimerEl.textContent=`(00:${String(left).padStart(2,'0')})`; if(left<=0){ clearInterval(t); } },1000); }
+        document.getElementById('sendOTPBtn').addEventListener('click', start);
+    })();
+    
     // Admin login functionality
     document.getElementById('adminLoginForm').onsubmit = function(e) {
         e.preventDefault();
@@ -113,9 +121,14 @@
             return;
         }
         
-        // For demo purposes, accept any admin email/password
-        // In a real app, you would verify credentials with the server
-        window.location.href = '/frontend/templates/admin.html';
+        // For demo purposes check demo credentials
+        if(email === 'admin@example.com' && password === 'Admin@123'){
+            sessionStorage.setItem('role','admin');
+            alert('Admin logged in (demo)');
+            window.location.href = '/admin.html';
+            return;
+        }
+        alert('Invalid admin credentials (demo)');
     };
     
     // Passenger login with OTP verification
@@ -134,9 +147,10 @@
             alert('Invalid OTP. Please try again.');
             return;
         }
-        
-        // Redirect to passenger dashboard after successful verification
-        window.location.href = '/frontend/templates/index.html';
+        // mark session as passenger
+        sessionStorage.setItem('role','passenger');
+        alert('Passenger logged in (demo)');
+        window.location.href = '/index.html';
     };
     </script>
 </body>

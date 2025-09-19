@@ -1,0 +1,30 @@
+<!doctype html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard - RailConnect</title>
+<link rel="stylesheet" href="../static/css/style.css">
+</head>
+<body>
+<header class="header"><div class="header-container container"><div class="logo"><h1><i class="fas fa-train"></i> RailConnect Admin</h1></div></div></header>
+<main style="padding:100px 20px;">
+<div class="container" style="max-width:900px;background:#fff;padding:20px;border-radius:8px;">
+<h2>Admin Dashboard (Demo)</h2>
+<p>This is a simple demo admin page. It does not authenticate server-side.</p>
+<form id="addTrainForm">
+<div class="form-group"><label for="trainName">Train Name</label><input id="trainName" placeholder="Express 123"/></div>
+<div class="form-group"><label for="fromStation">From</label><input id="fromStation"/></div>
+<div class="form-group"><label for="toStation">To</label><input id="toStation"/></div>
+<div class="form-group"><label for="departure">Departure</label><input id="departure" type="time"/></div>
+<button class="btn btn-primary">Add Train (Demo)</button>
+</form>
+</div>
+</main>
+<script>
+// Simple client-side guard: redirect to login if not admin
+if(sessionStorage.getItem('role')!=='admin'){
+    alert('Please login as admin to view this page (demo).');
+    window.location.href = '/login.html';
+}
+</script>
+</body></html>

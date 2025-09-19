@@ -101,8 +101,16 @@
                             <input type="text" id="destination" placeholder="Enter destination station">
                         </div>
                         <div class="form-group">
-                            <label for="dateModal">Date</label>
-                            <input type="date" id="dateModal">
+                            <label for="date">Date</label>
+                            <input type="date" id="date">
+                        </div>
+                        <div class="form-group">
+                            <label>Entered Data:</label>
+                            <div id="enteredData" style="background:#f5f7fa;padding:8px 12px;border-radius:5px;font-size:14px;color:#333;">
+                                From: <span id="enteredSource">-</span><br>
+                                To: <span id="enteredDestination">-</span><br>
+                                Date: <span id="enteredDate">-</span>
+                            </div>
                         </div>
                         <button type="submit" class="btn btn-primary">Search Trains</button>
                     </form>
@@ -121,14 +129,7 @@
     <!-- Tracking Section -->
     <section id="tracking" class="tracking">
     <div class="container" style="max-width: 900px;">
-                        <div class="form-group">
-                            <label>Entered Data:</label>
-                            <div id="enteredData" style="background:#f5f7fa;padding:8px 12px;border-radius:5px;font-size:14px;color:#333;">
-                                From: <span id="enteredSourceModal">-</span><br>
-                                To: <span id="enteredDestinationModal">-</span><br>
-                                Date: <span id="enteredDateModal">-</span>
-                            </div>
-                        </div>
+                        <!-- Removed duplicate enteredData preview from tracking section -->
             <h2 class="section-title">Track Your Train</h2>
             <div class="tracking-container">
                 <div class="tracking-form">
@@ -257,25 +258,25 @@
             </div>
             <div class="booking-container">
                 <div class="search-form">
-                    <form id="trainSearchForm">
+                    <form id="trainSearchFormModal">
                         <div class="form-group">
-                            <label for="source">From</label>
-                            <input type="text" id="source" placeholder="Enter source station" autocomplete="off">
+                            <label for="sourceModal">From</label>
+                            <input type="text" id="sourceModal" placeholder="Enter source station" autocomplete="off">
                         </div>
                         <div class="form-group">
-                            <label for="destination">To</label>
-                            <input type="text" id="destination" placeholder="Enter destination station" autocomplete="off">
+                            <label for="destinationModal">To</label>
+                            <input type="text" id="destinationModal" placeholder="Enter destination station" autocomplete="off">
                         </div>
                         <div class="form-group">
-                            <label for="date">Date</label>
-                            <input type="date" id="date">
+                            <label for="dateModal">Date</label>
+                            <input type="date" id="dateModal">
                         </div>
                         <div class="form-group">
                             <label>Entered Data:</label>
-                            <div id="enteredData" style="background:#f5f7fa;padding:8px 12px;border-radius:5px;font-size:14px;color:#333;">
-                                From: <span id="enteredSource">-</span><br>
-                                To: <span id="enteredDestination">-</span><br>
-                                Date: <span id="enteredDate">-</span>
+                            <div id="enteredDataModal" style="background:#f5f7fa;padding:8px 12px;border-radius:5px;font-size:14px;color:#333;">
+                                From: <span id="enteredSourceModal">-</span><br>
+                                To: <span id="enteredDestinationModal">-</span><br>
+                                Date: <span id="enteredDateModal">-</span>
                             </div>
                         </div>
                         <button type="submit" class="btn btn-primary">Search Trains</button>
@@ -445,7 +446,7 @@
                 if(dt) dt.addEventListener('input', ()=>{ const el = document.getElementById(targetPrefix+'Date'); if(el) el.textContent = dt.value || '-'; });
             }
             bindLivePreview('source','destination','date','entered');
-            bindLivePreview('sourceModal','destinationModal','dateModal','entered');
+            bindLivePreview('sourceModal','destinationModal','dateModal','enteredModal');
 
 
 
@@ -487,8 +488,14 @@
                 const email = document.getElementById('adminEmail').value.trim();
                 const pwd = document.getElementById('adminPassword').value;
                 if(email === 'admin@example.com' && pwd === 'Admin@123'){
+                    // mark session as admin for demo flows
+                    sessionStorage.setItem('role','admin');
                     alert('Admin logged in (demo)');
                     document.getElementById('loginModal').style.display = 'none';
+                    // optional: redirect to admin dashboard if exists
+                    if(location.pathname !== '/admin.html'){
+                        window.location.href = '/admin.html';
+                    }
                 } else {
                     alert('Invalid admin credentials (demo)');
                 }
