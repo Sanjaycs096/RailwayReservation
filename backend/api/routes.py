@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 # Function to register all routes
-def register_routes(app, db, socketio=None):
+def register_routes(app, db):
     # --- Coach Seat Map Endpoints ---
     @api.route('/api/trains/<train_id>/coaches', methods=['GET'])
     def get_coaches(train_id):
@@ -114,13 +114,6 @@ def register_routes(app, db, socketio=None):
             {'$set': update_doc},
             upsert=True
         )
-        # Emit real-time update if socketio is available
-        if socketio:
-            socketio.emit('coach_position_update', {
-                'train_id': str(train_id),
-                'coach_number': coach_number,
-                **update_doc
-            }, broadcast=True)
         return jsonify({'message': 'Coach position updated'}), 200
 
     # --- Route Deviation Alerts ---
@@ -138,13 +131,6 @@ def register_routes(app, db, socketio=None):
             'created_at': datetime.utcnow()
         }
         result = db.alerts.insert_one(new_alert)
-        # Emit real-time alert if socketio is available
-        if socketio:
-            socketio.emit('route_deviation_alert', {
-                'train_id': data['train_id'],
-                'message': data['message'],
-                'alert_id': str(result.inserted_id)
-            }, broadcast=True)
         return jsonify({'message': 'Route deviation alert created', 'alert_id': str(result.inserted_id)}), 201
     # Create API blueprint
     api = Blueprint('api', __name__)
