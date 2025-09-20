@@ -188,20 +188,9 @@
                 <button type="submit" class="btn btn-primary animated-btn">Login as Admin</button>
             </form>
             <form id="passengerLoginForm" class="login-form" style="display:none;">
-                <div class="form-row" style="display:flex;gap:8px;align-items:center;">
-                    <div class="form-group" style="flex:0 0 120px;">
-                        <label for="countryPrefix">Country</label>
-                        <select id="countryPrefix" class="country-select">
-                            <option value="+91">🇮🇳 +91</option>
-                            <option value="+1">🇺🇸 +1</option>
-                            <option value="+44">🇬🇧 +44</option>
-                            <option value="+61">🇦🇺 +61</option>
-                        </select>
-                    </div>
-                    <div class="form-group" style="flex:1;">
-                        <label for="passengerPhone">Phone Number</label>
-                        <input type="tel" id="passengerPhone" placeholder="9876543210" required pattern="[0-9]{6,15}">
-                    </div>
+                <div class="form-group">
+                    <label for="passengerEmail">Email Address</label>
+                    <input type="email" id="passengerEmail" placeholder="Enter your email" required autocomplete="email">
                 </div>
                 <div class="form-group otp-group" style="display:none;">
                     <label for="passengerOTP">OTP <small id="otpTimer" style="color:#888;margin-left:8px;">(00:30)</small></label>
@@ -379,7 +368,7 @@
                 document.getElementById('adminLoginForm').style.display = 'none';
                 document.getElementById('passengerLoginForm').style.display = '';
             };
-            // Passenger OTP logic (real API integration)
+            // Passenger OTP logic (email-based)
             (function(){
                 const sendBtn = document.getElementById('sendOTPBtn');
                 const resendBtn = document.getElementById('resendOTPBtn');
@@ -388,7 +377,7 @@
                 const otpTimerEl = document.getElementById('otpTimer');
                 let timer = null;
                 let timeLeft = 30;
-                let lastPhone = '';
+                let lastEmail = '';
                 function startTimer(){
                     timeLeft = 30;
                     otpTimerEl.textContent = `(00:${timeLeft.toString().padStart(2,'0')})`;
@@ -406,10 +395,9 @@
                 function stopTimer(){ if(timer) clearInterval(timer); timer = null; }
 
                 async function sendOTP(){
-                    const prefix = document.getElementById('countryPrefix').value;
-                    const phone = document.getElementById('passengerPhone').value.trim();
-                    if(!phone.match(/^\d{6,15}$/)){
-                        alert('Enter a valid phone number');
+                    const email = document.getElementById('passengerEmail').value.trim();
+                    if(!email.match(/^\S+@\S+\.\S+$/)){
+                        alert('Enter a valid email address');
                         return;
                     }
                     sendBtn.disabled = true;
@@ -418,7 +406,7 @@
                         const res = await fetch('/api/passenger/send_otp', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ phone: prefix + phone })
+                            body: JSON.stringify({ email })
                         });
                         if(res.ok){
                             otpGroup.style.display = '';
@@ -426,8 +414,8 @@
                             resendBtn.style.display = 'none';
                             verifyBtn.style.display = '';
                             startTimer();
-                            lastPhone = prefix + phone;
-                            alert('OTP sent to your phone.');
+                            lastEmail = email;
+                            alert('OTP sent to your email.');
                         }else{
                             const data = await res.json().catch(()=>({message:'Failed to send OTP'}));
                             alert(data.message || 'Failed to send OTP');
@@ -439,21 +427,21 @@
                 }
 
                 async function resendOTP(){
-                    if(!lastPhone){ alert('Please enter phone and send OTP first.'); return; }
+                    if(!lastEmail){ alert('Please enter email and send OTP first.'); return; }
                     resendBtn.disabled = true;
                     resendBtn.textContent = 'Resending...';
                     try {
                         const res = await fetch('/api/passenger/send_otp', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ phone: lastPhone })
+                            body: JSON.stringify({ email: lastEmail })
                         });
                         if(res.ok){
                             otpGroup.style.display = '';
                             resendBtn.style.display = 'none';
                             verifyBtn.style.display = '';
                             startTimer();
-                            alert('OTP resent to your phone.');
+                            alert('OTP resent to your email.');
                         }else{
                             const data = await res.json().catch(()=>({message:'Failed to resend OTP'}));
                             alert(data.message || 'Failed to resend OTP');
@@ -470,7 +458,7 @@
                 document.getElementById('passengerLoginForm').addEventListener('submit', async function(e){
                     e.preventDefault();
                     const otp = document.getElementById('passengerOTP').value.trim();
-                    if(!lastPhone){ alert('Please send OTP first.'); return; }
+                    if(!lastEmail){ alert('Please send OTP first.'); return; }
                     if(!otp){ alert('Enter the OTP'); return; }
                     verifyBtn.disabled = true;
                     verifyBtn.textContent = 'Verifying...';
@@ -478,14 +466,14 @@
                         const res = await fetch('/api/passenger/verify_otp', {
                             method: 'POST',
                             headers: {'Content-Type': 'application/json'},
-                            body: JSON.stringify({ phone: lastPhone, otp })
+                            body: JSON.stringify({ email: lastEmail, otp })
                         });
                         if(res.ok){
                             stopTimer();
                             // Store session info
                             sessionStorage.setItem('role','passenger');
-                            sessionStorage.setItem('phone', lastPhone);
-                            alert('Logged in as passenger: ' + lastPhone);
+                            sessionStorage.setItem('email', lastEmail);
+                            alert('Logged in as passenger: ' + lastEmail);
                             document.getElementById('loginModal').style.display = 'none';
                         }else{
                             const data = await res.json().catch(()=>({message:'Invalid OTP'}));
@@ -557,16 +545,30 @@
                 alert('Booking successful for '+name);
             }
             // Tracking logic
-            document.getElementById('trackingForm').onsubmit = function(e){
+            // Train tracking by train number (uses backend API)
+            document.getElementById('trackingForm').onsubmit = async function(e){
                 e.preventDefault();
-                const trainName = document.getElementById('trainNumber').value.trim().toLowerCase();
+                const trainNumber = document.getElementById('trainNumber').value.trim();
                 const info = document.getElementById('trackingInfo');
-                const trains = getTrains();
-                const t = trains.find(t=>t.name.toLowerCase()===trainName);
-                if(t){
-                    info.innerHTML = `<div class='train-info'><b>${t.name}</b><br>From: ${t.from}<br>To: ${t.to}<br>Departure: ${t.departure}</div>`;
-                }else{
-                    info.innerHTML = '<div class="no-tracking">Train not found</div>';
+                if(!trainNumber){
+                    info.innerHTML = '<div class="no-tracking">Enter train number</div>';
+                    return;
+                }
+                info.innerHTML = '<div class="no-tracking">Searching...</div>';
+                try {
+                    // Find train by number
+                    const res = await fetch('/api/trains');
+                    const data = await res.json();
+                    const trains = data.trains || [];
+                    const t = trains.find(t=>t.name===trainNumber || t._id===trainNumber);
+                    if(t){
+                        // Optionally, fetch tracking info from backend if available
+                        info.innerHTML = `<div class='train-info'><b>${t.name}</b><br>From: ${t.source||t.from}<br>To: ${t.destination||t.to}<br>Departure: ${t.departure_time||t.departure}</div>`;
+                    }else{
+                        info.innerHTML = '<div class="no-tracking">Train not found</div>';
+                    }
+                } catch(err){
+                    info.innerHTML = '<div class="no-tracking">Error fetching train info</div>';
                 }
             }
 
