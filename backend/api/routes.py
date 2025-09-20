@@ -1,3 +1,8 @@
+    # Admin: Get all bookings
+    @api.route('/api/bookings/all', methods=['GET'])
+    def get_all_bookings():
+        bookings = list(db.bookings.find())
+        return jsonify({'bookings': json.loads(json.dumps(bookings, default=str))}), 200
 from flask import Blueprint, request, jsonify
 from bson import ObjectId
 import json
@@ -5,6 +10,88 @@ from datetime import datetime
 
 # Function to register all routes
 def register_routes(app, db):
+
+    # --- Passenger Phone/OTP Login ---
+    import random
+    from flask import session
+
+    @api.route('/api/passenger/send_otp', methods=['POST'])
+    def send_passenger_otp():
+        data = request.get_json()
+        phone = data.get('phone')
+        if not phone:
+            return jsonify({'error': 'Phone number required'}), 400
+        otp = str(random.randint(100000, 999999))
+        # Store OTP in-memory (for demo; use Redis or DB in production)
+        session['otp_' + phone] = otp
+        print(f"OTP for {phone}: {otp}")  # In production, send via SMS
+        return jsonify({'message': 'OTP sent', 'otp': otp}), 200  # Return OTP for demo
+
+    @api.route('/api/passenger/verify_otp', methods=['POST'])
+    def verify_passenger_otp():
+        data = request.get_json()
+        phone = data.get('phone')
+        otp = data.get('otp')
+        if not phone or not otp:
+            return jsonify({'error': 'Phone and OTP required'}), 400
+        expected = session.get('otp_' + phone)
+        if otp != expected:
+            return jsonify({'error': 'Invalid OTP'}), 401
+        # Find or create user
+        user = db.users.find_one({'phone': phone})
+        if not user:
+            user = {
+                'name': 'Passenger',
+                'phone': phone,
+                'role': 'passenger',
+                'created_at': datetime.utcnow()
+            }
+            user_id = db.users.insert_one(user).inserted_id
+        else:
+            user_id = user['_id']
+        return jsonify({'message': 'Login successful', 'user_id': str(user_id), 'role': 'passenger'}), 200
+
+    # --- Admin: Clear All Bookings ---
+    @api.route('/api/admin/bookings/clear', methods=['POST'])
+    def clear_all_bookings():
+        db.bookings.delete_many({})
+        return jsonify({'message': 'All bookings cleared'}), 200
+
+    # Admin: Get all bookings (with user and train info, price, distance, duration)
+    @api.route('/api/bookings/all', methods=['GET'])
+    def get_all_bookings():
+        bookings = list(db.bookings.find())
+        result = []
+        for b in bookings:
+            # Get user info
+            user = db.users.find_one({'_id': b.get('user_id')}) if b.get('user_id') else None
+            # Get train info
+            train = db.trains.find_one({'_id': b.get('train_id')}) if b.get('train_id') else None
+            # Calculate distance and duration if train info available
+            distance = train.get('distance') if train and 'distance' in train else b.get('distance', '-')
+            duration = train.get('duration') if train and 'duration' in train else b.get('duration', '-')
+            # Calculate price: ₹10/km/seat as example
+            num_seats = len(b['seats']) if isinstance(b.get('seats'), list) else 1
+            try:
+                price = int(distance) * 10 * num_seats if distance and str(distance).isdigit() else '-'
+            except:
+                price = '-'
+            result.append({
+                '_id': str(b.get('_id')),
+                'user_name': user.get('name') if user else '-',
+                'user_phone': user.get('phone') if user else user.get('email') if user else '-',
+                'train_name': train.get('name') if train else b.get('train_name','-'),
+                'from': train.get('source') if train else b.get('from','-'),
+                'to': train.get('destination') if train else b.get('to','-'),
+                'date': b.get('date','-'),
+                'coach': b.get('coach','-'),
+                'seats': b.get('seats','-'),
+                'distance': distance,
+                'duration': duration,
+                'price': price,
+                'status': b.get('status','-')
+            })
+        return jsonify({'bookings': result}), 200
     # Create API blueprint FIRST so 'api' is defined before use
     api = Blueprint('api', __name__)
 

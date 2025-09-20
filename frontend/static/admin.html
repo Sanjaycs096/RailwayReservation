@@ -69,8 +69,27 @@
     <div id="alertMsgBox" style="color:green;font-weight:500;margin:8px 0 0 0;display:none;">Alert sent!</div>
 </div>
 
-<h3>All Bookings (Demo)</h3>
-<table id="bookingsTable" border="1" style="width:100%;"><thead><tr><th>User ID</th><th>Train</th><th>Seats</th><th>Date</th><th>Status</th></tr></thead><tbody></tbody></table>
+<h3 style="margin-bottom:0;">All Bookings</h3>
+<table id="bookingsTable" border="1" style="width:100%;text-align:center;">
+    <thead>
+        <tr>
+            <th>Booking ID</th>
+            <th>User Name</th>
+            <th>User Phone</th>
+            <th>Train</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Date</th>
+            <th>Coach</th>
+            <th>Seats</th>
+            <th>Distance (km)</th>
+            <th>Duration</th>
+            <th>Price (₹)</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 </div>
 </main>
 <script>
@@ -82,7 +101,7 @@ if(sessionStorage.getItem('role')!=='admin'){
 // Logout button
 document.getElementById('logoutBtn').onclick = function(){
     sessionStorage.clear();
-    window.location.href = '/login.html';
+    window.location.href = '/';
 };
 // Add train logic (MongoDB backend)
 const trainForm = document.getElementById('addTrainForm');
@@ -173,12 +192,32 @@ document.getElementById('alertForm').onsubmit = async function(e){
     }
 };
 async function fetchBookings(){
-    // For demo, fetch all bookings (requires backend endpoint for all bookings, else show none)
-    const res = await fetch('/api/bookings/all').catch(()=>null);
-    if(!res||!res.ok) { bookingsTable.innerHTML = '<tr><td colspan="5">No bookings</td></tr>'; return; }
-    const data = await res.json();
-    const bookings = data.bookings || [];
-    bookingsTable.innerHTML = bookings.length ? bookings.map(b=>`<tr><td>${b.user_id||'-'}</td><td>${b.train_name||'-'}</td><td>${b.seats||'-'}</td><td>${b.date||'-'}</td><td>${b.status||'-'}</td></tr>`).join('') : '<tr><td colspan="5">No bookings</td></tr>';
+        // Fetch all bookings with detailed info
+        const res = await fetch('/api/bookings/all').catch(()=>null);
+        if(!res||!res.ok) { bookingsTable.innerHTML = '<tr><td colspan="13">No bookings</td></tr>'; return; }
+        const data = await res.json();
+        const bookings = data.bookings || [];
+        bookingsTable.innerHTML = bookings.length ? bookings.map(b=>{
+            // Calculate price, distance, duration if available
+            const price = b.price || (b.distance && b.seats ? (parseInt(b.distance)*10* (Array.isArray(b.seats)?b.seats.length:1)) : '-');
+            const distance = b.distance || (b.train_distance || '-');
+            const duration = b.duration || (b.train_duration || '-');
+            return `<tr>
+                <td>${b._id||b.booking_id||'-'}</td>
+                <td>${b.user_name||b.name||'-'}</td>
+                <td>${b.user_phone||b.phone||'-'}</td>
+                <td>${b.train_name||b.train||'-'}</td>
+                <td>${b.from||b.source||'-'}</td>
+                <td>${b.to||b.destination||'-'}</td>
+                <td>${b.date||'-'}</td>
+                <td>${b.coach||'-'}</td>
+                <td>${Array.isArray(b.seats)?b.seats.join(', '):b.seats||'-'}</td>
+                <td>${distance}</td>
+                <td>${duration}</td>
+                <td>${price}</td>
+                <td>${b.status||'-'}</td>
+            </tr>`;
+        }).join('') : '<tr><td colspan="13">No bookings</td></tr>';
 }
 trainForm.onsubmit = async function(e){
     e.preventDefault();
@@ -205,5 +244,7 @@ trainForm.onsubmit = async function(e){
 };
 renderTrains();
 fetchBookings();
+
+
 </script>
 </body></html>
