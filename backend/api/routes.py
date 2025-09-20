@@ -12,7 +12,7 @@ def register_routes(app, db):
 
     # --- Passenger Phone/OTP Login ---
     import random
-    from flask import session
+    from datetime import timedelta
 
     @api.route('/api/passenger/send_otp', methods=['POST'])
     def send_passenger_otp():
@@ -21,8 +21,14 @@ def register_routes(app, db):
         if not phone:
             return jsonify({'error': 'Phone number required'}), 400
         otp = str(random.randint(100000, 999999))
-        # Store OTP in-memory (for demo; use Redis or DB in production)
-        session['otp_' + phone] = otp
+        # Store OTP in MongoDB with expiry (5 min)
+        db.otps.delete_many({'phone': phone})  # Remove old OTPs for this phone
+        db.otps.insert_one({
+            'phone': phone,
+            'otp': otp,
+            'created_at': datetime.utcnow(),
+            'expires_at': datetime.utcnow() + timedelta(minutes=5)
+        })
         print(f"OTP for {phone}: {otp}")  # In production, send via SMS
         return jsonify({'message': 'OTP sent', 'otp': otp}), 200  # Return OTP for demo
 
@@ -33,9 +39,13 @@ def register_routes(app, db):
         otp = data.get('otp')
         if not phone or not otp:
             return jsonify({'error': 'Phone and OTP required'}), 400
-        expected = session.get('otp_' + phone)
-        if otp != expected:
+        otp_doc = db.otps.find_one({'phone': phone, 'otp': otp})
+        if not otp_doc:
             return jsonify({'error': 'Invalid OTP'}), 401
+        if otp_doc.get('expires_at') < datetime.utcnow():
+            db.otps.delete_many({'phone': phone})
+            return jsonify({'error': 'OTP expired'}), 401
+        db.otps.delete_many({'phone': phone})  # Remove OTP after use
         # Find or create user
         user = db.users.find_one({'phone': phone})
         if not user:
