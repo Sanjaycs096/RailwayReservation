@@ -14,44 +14,63 @@ def register_routes(app, db):
     import random
     from datetime import timedelta
 
+    import smtplib
+    from email.mime.text import MIMEText
+    import os
+
     @api.route('/api/passenger/send_otp', methods=['POST'])
     def send_passenger_otp():
         data = request.get_json()
         phone = data.get('phone')
-        if not phone:
-            return jsonify({'error': 'Phone number required'}), 400
+        email = data.get('email')
+        if not email:
+            return jsonify({'error': 'Email required for OTP'}), 400
         otp = str(random.randint(100000, 999999))
         # Store OTP in MongoDB with expiry (5 min)
-        db.otps.delete_many({'phone': phone})  # Remove old OTPs for this phone
+        db.otps.delete_many({'email': email})  # Remove old OTPs for this email
         db.otps.insert_one({
-            'phone': phone,
+            'email': email,
             'otp': otp,
             'created_at': datetime.utcnow(),
             'expires_at': datetime.utcnow() + timedelta(minutes=5)
         })
-        print(f"OTP for {phone}: {otp}")  # In production, send via SMS
-        return jsonify({'message': 'OTP sent', 'otp': otp}), 200  # Return OTP for demo
+        # Send OTP via Gmail SMTP
+        gmail_user = os.environ.get('GMAIL_USER')
+        gmail_pass = os.environ.get('GMAIL_PASS')
+        if not gmail_user or not gmail_pass:
+            return jsonify({'error': 'Email service not configured'}), 500
+        msg = MIMEText(f'Your RailConnect OTP is: {otp}')
+        msg['Subject'] = 'Your RailConnect OTP'
+        msg['From'] = gmail_user
+        msg['To'] = email
+        try:
+            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                server.login(gmail_user, gmail_pass)
+                server.sendmail(gmail_user, [email], msg.as_string())
+        except Exception as e:
+            return jsonify({'error': f'Failed to send OTP: {str(e)}'}), 500
+        return jsonify({'message': 'OTP sent to email'}), 200
 
     @api.route('/api/passenger/verify_otp', methods=['POST'])
     def verify_passenger_otp():
         data = request.get_json()
-        phone = data.get('phone')
+        email = data.get('email')
         otp = data.get('otp')
-        if not phone or not otp:
-            return jsonify({'error': 'Phone and OTP required'}), 400
-        otp_doc = db.otps.find_one({'phone': phone, 'otp': otp})
+        if not email or not otp:
+            return jsonify({'error': 'Email and OTP required'}), 400
+        otp_doc = db.otps.find_one({'email': email, 'otp': otp})
         if not otp_doc:
             return jsonify({'error': 'Invalid OTP'}), 401
         if otp_doc.get('expires_at') < datetime.utcnow():
-            db.otps.delete_many({'phone': phone})
+            db.otps.delete_many({'email': email})
             return jsonify({'error': 'OTP expired'}), 401
-        db.otps.delete_many({'phone': phone})  # Remove OTP after use
+        db.otps.delete_many({'email': email})  # Remove OTP after use
         # Find or create user
-        user = db.users.find_one({'phone': phone})
+        user = db.users.find_one({'email': email})
         if not user:
             user = {
                 'name': 'Passenger',
-                'phone': phone,
+                'email': email,
                 'role': 'passenger',
                 'created_at': datetime.utcnow()
             }

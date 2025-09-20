@@ -520,18 +520,32 @@
             function setBookings(bookings){
                 localStorage.setItem('bookings',JSON.stringify(bookings));
             }
-            // Booking search
-            document.getElementById('trainSearchForm').onsubmit = function(e){
+            // Booking search (filter trains by from, to, date using backend API)
+            document.getElementById('trainSearchForm').onsubmit = async function(e){
                 e.preventDefault();
-                const from = document.getElementById('source').value.trim().toLowerCase();
-                const to = document.getElementById('destination').value.trim().toLowerCase();
+                const from = document.getElementById('source').value.trim();
+                const to = document.getElementById('destination').value.trim();
                 const date = document.getElementById('date').value;
                 const trainList = document.getElementById('trainList');
-                const trains = getTrains().filter(t=>t.from.toLowerCase()===from && t.to.toLowerCase()===to);
-                if(trains.length){
-                    trainList.innerHTML = trains.map(t=>`<div class="train-item"><b>${t.name}</b> | Departure: ${t.departure} <button class='btn btn-sm btn-primary' onclick='bookTrain("${t.name}","${t.from}","${t.to}","${date}")'>Book</button></div>`).join('');
-                }else{
-                    trainList.innerHTML = '<div class="no-trains">No trains found for this route</div>';
+                if(!from || !to || !date){
+                    trainList.innerHTML = '<div class="no-trains">Please enter all fields</div>';
+                    return;
+                }
+                trainList.innerHTML = '<div class="no-trains">Searching...</div>';
+                try {
+                    const res = await fetch(`/api/trains`);
+                    const data = await res.json();
+                    let trains = (data.trains || []).filter(t =>
+                        (t.source||t.from||'').toLowerCase() === from.toLowerCase() &&
+                        (t.destination||t.to||'').toLowerCase() === to.toLowerCase()
+                    );
+                    if(trains.length){
+                        trainList.innerHTML = trains.map(t=>`<div class="train-item"><b>${t.name}</b> | Departure: ${t.departure_time||t.departure} <button class='btn btn-sm btn-primary' onclick='bookTrain("${t._id}","${t.name}","${t.source||t.from}","${t.destination||t.to}","${date}")'>Book</button></div>`).join('');
+                    }else{
+                        trainList.innerHTML = '<div class="no-trains">No trains found for this route and date</div>';
+                    }
+                } catch(err){
+                    trainList.innerHTML = '<div class="no-trains">Error fetching trains</div>';
                 }
             }
             // Book train (demo)
