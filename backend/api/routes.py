@@ -7,6 +7,9 @@ from datetime import datetime
 # Function to register all routes
 def register_routes(app, db):
 
+    # Create API blueprint FIRST so 'api' is defined before use
+    api = Blueprint('api', __name__)
+
     # --- Passenger Phone/OTP Login ---
     import random
     from flask import session
