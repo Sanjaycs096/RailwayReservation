@@ -219,15 +219,24 @@
                     <label for="registerEmail">Email</label>
                     <input type="email" id="registerEmail" placeholder="Enter your email" required autocomplete="email">
                 </div>
-                <div class="form-group">
+                <div class="form-group otp-group" style="display:none;">
+                    <label for="registerOTP">OTP <small id="registerOtpTimer" style="color:#888;margin-left:8px;">(00:30)</small></label>
+                    <input type="text" id="registerOTP" placeholder="Enter OTP" maxlength="6">
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button type="button" class="btn btn-primary animated-btn" id="registerSendOTPBtn">Send OTP</button>
+                    <button type="button" class="btn btn-outline" id="registerResendOTPBtn" style="display:none;">Resend OTP</button>
+                    <button type="button" class="btn btn-primary" id="registerVerifyOTPBtn" style="display:none;">Verify OTP</button>
+                </div>
+                <div class="form-group" id="registerPasswordGroup" style="display:none;">
                     <label for="registerPassword">Password</label>
                     <input type="password" id="registerPassword" placeholder="Enter your password" required autocomplete="new-password">
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="registerConfirmPasswordGroup" style="display:none;">
                     <label for="confirmPassword">Confirm Password</label>
                     <input type="password" id="confirmPassword" placeholder="Confirm your password" required autocomplete="new-password">
                 </div>
-                <button type="submit" class="btn btn-primary">Register</button>
+                <button type="submit" class="btn btn-primary" id="registerSubmitBtn" style="display:none;">Register</button>
             </form>
             <p>Already have an account? <a href="#" id="loginLink">Login</a></p>
         </div>
@@ -368,13 +377,16 @@
                 document.getElementById('adminLoginForm').style.display = 'none';
                 document.getElementById('passengerLoginForm').style.display = '';
             };
-            // Passenger OTP logic (email-based)
+            // Registration OTP logic (email-based)
             (function(){
-                const sendBtn = document.getElementById('sendOTPBtn');
-                const resendBtn = document.getElementById('resendOTPBtn');
-                const verifyBtn = document.getElementById('verifyOTPBtn');
-                const otpGroup = document.querySelector('#passengerLoginForm .otp-group');
-                const otpTimerEl = document.getElementById('otpTimer');
+                const sendBtn = document.getElementById('registerSendOTPBtn');
+                const resendBtn = document.getElementById('registerResendOTPBtn');
+                const verifyBtn = document.getElementById('registerVerifyOTPBtn');
+                const otpGroup = document.querySelector('#registerForm .otp-group');
+                const otpTimerEl = document.getElementById('registerOtpTimer');
+                const passwordGroup = document.getElementById('registerPasswordGroup');
+                const confirmPasswordGroup = document.getElementById('registerConfirmPasswordGroup');
+                const submitBtn = document.getElementById('registerSubmitBtn');
                 let timer = null;
                 let timeLeft = 30;
                 let lastEmail = '';
@@ -395,13 +407,14 @@
                 function stopTimer(){ if(timer) clearInterval(timer); timer = null; }
 
                 async function sendOTP(){
-                    const email = document.getElementById('passengerEmail').value.trim();
+                    const email = document.getElementById('registerEmail').value.trim();
                     if(!email.match(/^\S+@\S+\.\S+$/)){
                         alert('Enter a valid email address');
                         return;
                     }
                     sendBtn.disabled = true;
                     sendBtn.textContent = 'Sending...';
+                    console.log('[OTP] Sending OTP to:', email);
                     try {
                         const res = await fetch('/api/passenger/send_otp', {
                             method: 'POST',
@@ -415,11 +428,16 @@
                             verifyBtn.style.display = '';
                             startTimer();
                             lastEmail = email;
-                            alert('OTP sent to your email.');
+                            alert('OTP sent to your email. Please check your inbox (and spam folder).');
+                            console.log('[OTP] OTP sent successfully to:', email);
                         }else{
                             const data = await res.json().catch(()=>({message:'Failed to send OTP'}));
                             alert(data.message || 'Failed to send OTP');
+                            console.error('[OTP] Failed to send OTP:', data.message);
                         }
+                    } catch (err) {
+                        alert('Error sending OTP.');
+                        console.error('[OTP] Error sending OTP:', err);
                     } finally {
                         sendBtn.disabled = false;
                         sendBtn.textContent = 'Send OTP';
@@ -452,16 +470,13 @@
                     }
                 }
 
-                sendBtn.addEventListener('click', sendOTP);
-                resendBtn.addEventListener('click', resendOTP);
-
-                document.getElementById('passengerLoginForm').addEventListener('submit', async function(e){
-                    e.preventDefault();
-                    const otp = document.getElementById('passengerOTP').value.trim();
+                async function verifyOTP(){
+                    const otp = document.getElementById('registerOTP').value.trim();
                     if(!lastEmail){ alert('Please send OTP first.'); return; }
                     if(!otp){ alert('Enter the OTP'); return; }
                     verifyBtn.disabled = true;
                     verifyBtn.textContent = 'Verifying...';
+                    console.log('[OTP] Verifying OTP for:', lastEmail, 'OTP:', otp);
                     try {
                         const res = await fetch('/api/passenger/verify_otp', {
                             method: 'POST',
@@ -470,18 +485,58 @@
                         });
                         if(res.ok){
                             stopTimer();
-                            // Store session info
-                            sessionStorage.setItem('role','passenger');
-                            sessionStorage.setItem('email', lastEmail);
-                            alert('Logged in as passenger: ' + lastEmail);
-                            document.getElementById('loginModal').style.display = 'none';
+                            passwordGroup.style.display = '';
+                            confirmPasswordGroup.style.display = '';
+                            submitBtn.style.display = '';
+                            verifyBtn.style.display = 'none';
+                            alert('OTP verified. Please set your password.');
+                            console.log('[OTP] OTP verified for:', lastEmail);
                         }else{
                             const data = await res.json().catch(()=>({message:'Invalid OTP'}));
                             alert(data.message || 'Invalid OTP');
+                            console.error('[OTP] Invalid OTP:', data.message);
                         }
+                    } catch (err) {
+                        alert('Error verifying OTP.');
+                        console.error('[OTP] Error verifying OTP:', err);
                     } finally {
                         verifyBtn.disabled = false;
                         verifyBtn.textContent = 'Verify OTP';
+                    }
+                }
+
+                sendBtn.addEventListener('click', sendOTP);
+                resendBtn.addEventListener('click', resendOTP);
+                verifyBtn.addEventListener('click', verifyOTP);
+
+                document.getElementById('registerForm').addEventListener('submit', async function(e){
+                    e.preventDefault();
+                    // Only allow submit after OTP verified
+                    if(submitBtn.style.display === 'none') return;
+                    const name = document.getElementById('name').value.trim();
+                    const email = document.getElementById('registerEmail').value.trim();
+                    const password = document.getElementById('registerPassword').value;
+                    const confirmPassword = document.getElementById('confirmPassword').value;
+                    if(!name || !email || !password || !confirmPassword){
+                        alert('Please fill all fields');
+                        return;
+                    }
+                    if(password !== confirmPassword){
+                        alert('Passwords do not match');
+                        return;
+                    }
+                    // Register user
+                    const res = await fetch('/api/users/register', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ name, email, password })
+                    });
+                    if(res.ok){
+                        alert('Registration successful! You can now log in.');
+                        document.getElementById('registerModal').style.display = 'none';
+                    }else{
+                        const data = await res.json().catch(()=>({message:'Registration failed'}));
+                        alert(data.message || 'Registration failed');
                     }
                 });
             })();
