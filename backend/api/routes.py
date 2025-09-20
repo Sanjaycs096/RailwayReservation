@@ -1,8 +1,4 @@
-    # Admin: Get all bookings
-    @api.route('/api/bookings/all', methods=['GET'])
-    def get_all_bookings():
-        bookings = list(db.bookings.find())
-        return jsonify({'bookings': json.loads(json.dumps(bookings, default=str))}), 200
+
 from flask import Blueprint, request, jsonify
 from bson import ObjectId
 import json
