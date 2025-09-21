@@ -7,6 +7,107 @@
     <link rel="stylesheet" href="../static/css/style.css">
     <link rel="stylesheet" href="../static/css/animations.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+        .payment-methods {
+            margin-bottom: 20px;
+        }
+        .payment-method {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .payment-method:hover {
+            border-color: #007bff;
+            box-shadow: 0 0 10px rgba(0, 123, 255, 0.2);
+        }
+        .payment-method.selected {
+            background-color: #f0f7ff;
+            border-color: #007bff;
+        }
+        .payment-method input[type="radio"] {
+            display: none;
+        }
+        .payment-method label {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            cursor: pointer;
+            margin: 0;
+        }
+        .payment-method img {
+            height: 40px;
+            margin-right: 15px;
+        }
+        .payment-method h4 {
+            margin: 0 0 5px 0;
+        }
+        .payment-method p {
+            margin: 0;
+            font-size: 14px;
+            color: #666;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+        .modal-content {
+            background-color: #fff;
+            margin: 10% auto;
+            padding: 20px;
+            border-radius: 10px;
+            width: 50%;
+            max-width: 500px;
+            text-align: center;
+        }
+        .success-icon {
+            font-size: 60px;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+        .ticket-details {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #000;
+        }
+        .btn-view-ticket {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        .btn-close {
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
     <!-- Header Section -->
@@ -70,32 +171,58 @@
                 </div>
                 
                 <div class="payment-form">
-                    <h3>Payment Details</h3>
-                    <form id="payment-form">
-                        <div class="form-group">
-                            <label for="card-number">Card Number</label>
-                            <input type="text" id="card-number" placeholder="1234 5678 9012 3456" maxlength="19">
+                    <h3>Payment Methods</h3>
+                    <div class="payment-methods">
+                        <div class="payment-method" data-method="gpay">
+                            <input type="radio" name="payment-method" id="gpay">
+                            <label for="gpay">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/Google_Pay_Logo_%282020%29.svg/1200px-Google_Pay_Logo_%282020%29.svg.png" alt="Google Pay">
+                                <div>
+                                    <h4>Google Pay</h4>
+                                    <p>Pay instantly using Google Pay</p>
+                                </div>
+                            </label>
                         </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="expiry-date">Expiry Date</label>
-                                <input type="text" id="expiry-date" placeholder="MM/YY" maxlength="5">
-                            </div>
-                            <div class="form-group">
-                                <label for="cvv">CVV</label>
-                                <input type="text" id="cvv" placeholder="123" maxlength="3">
-                            </div>
+                        
+                        <div class="payment-method" data-method="phonepe">
+                            <input type="radio" name="payment-method" id="phonepe">
+                            <label for="phonepe">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/PhonePe_Logo.png/800px-PhonePe_Logo.png" alt="PhonePe">
+                                <div>
+                                    <h4>PhonePe</h4>
+                                    <p>Pay securely with PhonePe</p>
+                                </div>
+                            </label>
                         </div>
-                        <div class="form-group">
-                            <label for="name-on-card">Name on Card</label>
-                            <input type="text" id="name-on-card" placeholder="John Doe">
+                        
+                        <div class="payment-method" data-method="paytm">
+                            <input type="radio" name="payment-method" id="paytm">
+                            <label for="paytm">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/24/Paytm_Logo_%28standalone%29.svg/2560px-Paytm_Logo_%28standalone%29.svg.png" alt="Paytm">
+                                <div>
+                                    <h4>Paytm</h4>
+                                    <p>Pay using Paytm wallet or UPI</p>
+                                </div>
+                            </label>
                         </div>
-                        <div class="form-group total-amount">
-                            <label>Total Amount:</label>
-                            <div id="total-amount">₹0</div>
+                        
+                        <div class="payment-method" data-method="paypal">
+                            <input type="radio" name="payment-method" id="paypal">
+                            <label for="paypal">
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/PayPal.svg/2560px-PayPal.svg.png" alt="PayPal">
+                                <div>
+                                    <h4>PayPal</h4>
+                                    <p>Pay securely with PayPal</p>
+                                </div>
+                            </label>
                         </div>
-                        <button type="submit" class="btn btn-primary pay-now-btn">Pay Now</button>
-                    </form>
+                    </div>
+                    
+                    <div class="form-group total-amount">
+                        <label>Total Amount:</label>
+                        <div id="total-amount">₹<span id="payment-amount">1,500</span></div>
+                    </div>
+                    <button type="button" id="confirm-payment-btn" class="btn btn-primary pay-now-btn">Confirm Payment</button>
                 </div>
             </div>
         </div>
@@ -129,6 +256,31 @@
         </div>
     </div>
 
+    <!-- Payment Confirmation Modal -->
+    <div id="paymentConfirmationModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <i class="fas fa-check-circle success-icon"></i>
+            <h3>Payment Successful!</h3>
+            <p>Your ticket has been booked successfully.</p>
+            
+            <div class="ticket-details">
+                <h4>Ticket Details</h4>
+                <p><strong>PNR Number:</strong> <span id="pnrNumber">2314567890</span></p>
+                <p><strong>Train:</strong> <span id="modalTrainName">Express 12345</span></p>
+                <p><strong>Journey:</strong> <span id="modalJourneyDetails">Delhi to Mumbai</span></p>
+                <p><strong>Date:</strong> <span id="modalJourneyDate">2023-10-15</span></p>
+                <p><strong>Class:</strong> <span id="modalTravelClass">AC 2-Tier</span></p>
+                <p><strong>Coach & Seat:</strong> <span id="modalCoachSeat">A1 - 12, 13</span></p>
+            </div>
+            
+            <div>
+                <button class="btn-view-ticket" id="viewTicketBtn">View Ticket</button>
+                <button class="btn-close" id="closeModalBtn">Close</button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Footer Section -->
     <footer class="footer">
         <div class="container">
