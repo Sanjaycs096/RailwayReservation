@@ -64,7 +64,7 @@
             margin: 10% auto;
             padding: 20px;
             border-radius: 10px;
-            width: 50%;
+            width: 90%;
             max-width: 500px;
             text-align: center;
         }
@@ -106,6 +106,52 @@
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
+        }
+        
+        /* Responsive styles for mobile devices */
+        @media (max-width: 768px) {
+            .payment-container {
+                flex-direction: column;
+            }
+            .booking-summary, .payment-form {
+                width: 100%;
+                margin-bottom: 20px;
+            }
+            .payment-method label {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .payment-method img {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 15px;
+            }
+            .action-buttons {
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .action-buttons button {
+                width: 100%;
+            }
+            .btn-view-ticket, .btn-close {
+                width: 100%;
+                margin: 5px 0;
+            }
+            .header .container {
+                flex-direction: column;
+            }
+            .nav ul {
+                flex-direction: column;
+                align-items: center;
+            }
+            .nav ul li {
+                margin: 5px 0;
+            }
         }
     </style>
 </head>
@@ -316,6 +362,7 @@
             // Get booking details from session storage
             const selectedTrain = JSON.parse(sessionStorage.getItem('selectedTrain') || '{}');
             const selectedSeats = JSON.parse(sessionStorage.getItem('selectedSeats') || '[]');
+            const userInfo = JSON.parse(localStorage.getItem('userInfo') || '{}');
             
             // Update booking summary
             document.getElementById('summary-train').textContent = selectedTrain.name || 'Express 12345';
@@ -331,87 +378,110 @@
             // Update total amount
             const totalAmount = selectedTrain.totalPrice || 1500;
             document.getElementById('summary-amount').textContent = `₹${totalAmount}`;
-            document.getElementById('total-amount').textContent = `₹${totalAmount}`;
+            document.getElementById('payment-amount').textContent = totalAmount;
             
-            // Handle payment form submission
-            const paymentForm = document.getElementById('payment-form');
-            paymentForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // Validate form
-                const cardNumber = document.getElementById('card-number').value;
-                const expiryDate = document.getElementById('expiry-date').value;
-                const cvv = document.getElementById('cvv').value;
-                const nameOnCard = document.getElementById('name-on-card').value;
-                
-                if (!cardNumber || !expiryDate || !cvv || !nameOnCard) {
-                    alert('Please fill in all payment details');
+            // Handle payment method selection
+            const paymentMethods = document.querySelectorAll('.payment-method');
+            let selectedPaymentMethod = null;
+            
+            paymentMethods.forEach(method => {
+                method.addEventListener('click', function() {
+                    // Remove selected class from all methods
+                    paymentMethods.forEach(m => m.classList.remove('selected'));
+                    // Add selected class to clicked method
+                    this.classList.add('selected');
+                    // Update selected payment method
+                    selectedPaymentMethod = this.getAttribute('data-method');
+                    // Check the radio button
+                    const radio = this.querySelector('input[type="radio"]');
+                    radio.checked = true;
+                });
+            });
+            
+            // Handle payment confirmation
+            const confirmPaymentBtn = document.getElementById('confirm-payment-btn');
+            confirmPaymentBtn.addEventListener('click', function() {
+                if (!selectedPaymentMethod) {
+                    alert('Please select a payment method');
                     return;
                 }
                 
-                // Generate booking ID
+                // Generate booking ID and PNR
                 const bookingId = 'RAIL' + Math.floor(100000 + Math.random() * 900000);
+                const pnrNumber = Math.floor(1000000000 + Math.random() * 9000000000);
                 
-                // Update confirmation modal
-                document.getElementById('booking-id').textContent = bookingId;
-                document.getElementById('confirm-train').textContent = selectedTrain.name || 'Express 12345';
-                document.getElementById('confirm-from').textContent = selectedTrain.from || 'Delhi';
-                document.getElementById('confirm-to').textContent = selectedTrain.to || 'Mumbai';
-                document.getElementById('confirm-date').textContent = selectedTrain.date || '2023-10-15';
-                document.getElementById('confirm-seats').textContent = seatNumbers;
-                document.getElementById('confirm-amount').textContent = totalAmount;
+                // Update payment confirmation modal
+                document.getElementById('pnrNumber').textContent = pnrNumber;
+                document.getElementById('modalTrainName').textContent = selectedTrain.name || 'Express 12345';
+                document.getElementById('modalJourneyDetails').textContent = `${selectedTrain.from || 'Delhi'} to ${selectedTrain.to || 'Mumbai'}`;
+                document.getElementById('modalJourneyDate').textContent = selectedTrain.date || '2023-10-15';
+                document.getElementById('modalTravelClass').textContent = selectedTrain.class || 'AC 2-Tier';
+                document.getElementById('modalCoachSeat').textContent = seatNumbers;
                 
-                // Show confirmation modal
-                const confirmationModal = document.getElementById('confirmation-modal');
-                confirmationModal.style.display = 'block';
+                // Show payment confirmation modal
+                document.getElementById('paymentConfirmationModal').style.display = 'block';
                 
                 // Store booking in local storage for tracking
                 const bookings = JSON.parse(localStorage.getItem('bookings') || '[]');
-                bookings.push({
+                const newBooking = {
                     id: bookingId,
+                    pnr: pnrNumber,
                     train: selectedTrain.name,
                     from: selectedTrain.from,
                     to: selectedTrain.to,
                     date: selectedTrain.date,
+                    class: selectedTrain.class,
                     seats: seatNumbers,
                     amount: totalAmount,
-                    status: 'Confirmed'
-                });
+                    paymentMethod: selectedPaymentMethod,
+                    status: 'Confirmed',
+                    timestamp: new Date().toISOString()
+                };
+                bookings.push(newBooking);
                 localStorage.setItem('bookings', JSON.stringify(bookings));
+                
+                // Send confirmation email (simulation)
+                sendConfirmationEmail(userInfo.email, newBooking);
             });
             
-            // Close modal
-            const closeBtn = document.querySelector('.close');
-            closeBtn.addEventListener('click', function() {
-                document.getElementById('confirmation-modal').style.display = 'none';
+            // Function to simulate sending confirmation email
+            function sendConfirmationEmail(email, booking) {
+                console.log(`Sending confirmation email to ${email || 'user@example.com'}`);
+                console.log('Booking details:', booking);
+                
+                // In a real implementation, this would make an API call to the backend
+                // to send an actual email with the booking details
+                
+                // For now, we'll just log the details and show a success message
+                setTimeout(() => {
+                    console.log('Email sent successfully!');
+                }, 1000);
+            }
+            
+            // Close modals
+            const closeButtons = document.querySelectorAll('.close');
+            closeButtons.forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const modal = this.closest('.modal');
+                    modal.style.display = 'none';
+                });
             });
             
-            // Download ticket button
-            document.getElementById('download-ticket').addEventListener('click', function() {
-                alert('Ticket download functionality will be implemented with the backend.');
+            // View ticket button
+            document.getElementById('viewTicketBtn').addEventListener('click', function() {
+                alert('Ticket view functionality will be implemented with the backend.');
+            });
+            
+            // Close modal button
+            document.getElementById('closeModalBtn').addEventListener('click', function() {
+                document.getElementById('paymentConfirmationModal').style.display = 'none';
+                // Redirect to home page after successful payment
+                window.location.href = 'index.html';
             });
             
             // Return to home button
             document.getElementById('return-home').addEventListener('click', function() {
                 window.location.href = 'index.html';
-            });
-            
-            // Format card number with spaces
-            document.getElementById('card-number').addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\s+/g, '');
-                if (value.length > 0) {
-                    value = value.match(new RegExp('.{1,4}', 'g')).join(' ');
-                }
-                e.target.value = value;
-            });
-            
-            // Format expiry date with slash
-            document.getElementById('expiry-date').addEventListener('input', function(e) {
-                let value = e.target.value.replace(/\//g, '');
-                if (value.length > 2) {
-                    value = value.substring(0, 2) + '/' + value.substring(2);
-                }
-                e.target.value = value;
             });
         });
     </script>

@@ -168,6 +168,66 @@
             background-color: #e8f4ff;
             border-left: 3px solid #007bff;
         }
+        
+        /* Responsive styles for mobile devices */
+        @media (max-width: 768px) {
+            .header-container {
+                flex-direction: column;
+                padding: 10px;
+            }
+            .nav-links {
+                flex-direction: column;
+                width: 100%;
+                display: none;
+            }
+            .nav-links.active {
+                display: flex;
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+            .hero-content {
+                padding: 40px 20px;
+            }
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            .booking-container, .tracking-container {
+                flex-direction: column;
+            }
+            .search-form, .tracking-form, .train-results {
+                width: 100%;
+                margin-bottom: 20px;
+            }
+            .train-item {
+                flex-direction: column;
+            }
+            .train-info, .train-classes {
+                width: 100%;
+            }
+            .train-classes {
+                margin-top: 15px;
+            }
+            .book-btn {
+                width: 100%;
+                margin-top: 15px;
+            }
+            .modal-content {
+                width: 95%;
+                margin: 5% auto;
+                padding: 15px;
+            }
+            .seat-map {
+                justify-content: center;
+            }
+            .train-details-row {
+                flex-direction: column;
+            }
+            .detail-item {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -638,6 +698,18 @@
             // Seat Selection Modal functionality
             document.querySelectorAll('.book-btn').forEach(btn => {
                 btn.addEventListener('click', function() {
+                    // Check if user is logged in
+                    const isLoggedIn = localStorage.getItem('userLoggedIn') === 'true';
+                    
+                    if (!isLoggedIn) {
+                        // Show login modal if not logged in
+                        document.getElementById('loginModal').style.display = 'block';
+                        // Store the train info to continue booking after login
+                        const trainInfo = this.closest('.train-item').dataset;
+                        localStorage.setItem('pendingBooking', JSON.stringify(trainInfo));
+                        return;
+                    }
+                    
                     document.getElementById('seatSelectionModal').style.display = 'block';
                     
                     // Populate coach selection
@@ -657,38 +729,66 @@
             function generateSeatMap() {
                 const coachType = document.getElementById('coachList').value || 'SL';
                 const seatMap = document.querySelector('.seat-map');
-                seatMap.innerHTML = '';
+                seatMap.innerHTML = '<div class="loading-seats">Loading seat map...</div>';
                 
                 // Number of seats based on coach type
                 const totalSeats = coachType === 'SL' ? 72 : (coachType === '3A' ? 64 : 48);
                 
-                // Generate seats
-                for(let i = 1; i <= totalSeats; i++) {
-                    const seatDiv = document.createElement('div');
-                    seatDiv.className = 'seat';
+                // In a real application, this would fetch from the backend
+                // Simulating API call to get booked seats
+                fetchBookedSeats(coachType).then(bookedSeats => {
+                    seatMap.innerHTML = '';
                     
-                    // Randomly mark some seats as booked for demo
-                    const isBooked = Math.random() > 0.7;
-                    if(isBooked) {
-                        seatDiv.className += ' booked';
-                        seatDiv.title = 'Already Booked';
-                    } else {
-                        seatDiv.className += ' available';
-                        seatDiv.title = 'Available';
-                        seatDiv.onclick = function() {
-                            if(this.classList.contains('selected')) {
-                                this.classList.remove('selected');
-                            } else {
-                                this.classList.add('selected');
-                            }
-                            updateSelectedSeats();
-                        };
+                    // Generate seats
+                    for(let i = 1; i <= totalSeats; i++) {
+                        const seatDiv = document.createElement('div');
+                        seatDiv.className = 'seat';
+                        
+                        // Check if seat is booked
+                        const isBooked = bookedSeats.includes(i);
+                        if(isBooked) {
+                            seatDiv.className += ' booked';
+                            seatDiv.title = 'Already Booked';
+                        } else {
+                            seatDiv.className += ' available';
+                            seatDiv.title = 'Available';
+                            seatDiv.onclick = function() {
+                                if(this.classList.contains('selected')) {
+                                    this.classList.remove('selected');
+                                } else {
+                                    this.classList.add('selected');
+                                }
+                                updateSelectedSeats();
+                            };
+                        }
+                        
+                        seatDiv.textContent = i;
+                        seatDiv.dataset.seatNumber = i;
+                        seatDiv.dataset.coachType = coachType;
+                        seatMap.appendChild(seatDiv);
                     }
-                    
-                    seatDiv.textContent = i;
-                    seatDiv.dataset.seatNumber = i;
-                    seatDiv.dataset.coachType = coachType;
-                    seatMap.appendChild(seatDiv);
+                });
+                
+                // Function to fetch booked seats (simulated)
+                function fetchBookedSeats(coachType) {
+                    return new Promise(resolve => {
+                        // Simulate API delay
+                        setTimeout(() => {
+                            // In a real app, this would be an API call
+                            // For demo, generate some random booked seats
+                            const bookedSeats = [];
+                            const bookingRate = coachType === 'SL' ? 0.3 : (coachType === '3A' ? 0.4 : 0.5);
+                            const totalSeats = coachType === 'SL' ? 72 : (coachType === '3A' ? 64 : 48);
+                            
+                            for(let i = 1; i <= totalSeats; i++) {
+                                if(Math.random() < bookingRate) {
+                                    bookedSeats.push(i);
+                                }
+                            }
+                            
+                            resolve(bookedSeats);
+                        }, 500);
+                    });
                 }
                 
                 // Add CSS for seat map
@@ -723,6 +823,32 @@
                             color: white;
                             border-color: #2e7d32;
                         }
+                        
+                        /* Mobile responsive styles for seat map */
+                        @media (max-width: 768px) {
+                            .seat-map {
+                                gap: 4px 6px;
+                            }
+                            .seat {
+                                width: 30px;
+                                height: 30px;
+                                font-size: 12px;
+                            }
+                            .modal-content {
+                                width: 95%;
+                                max-width: 95%;
+                                padding: 15px;
+                            }
+                            .coach-select {
+                                flex-direction: column;
+                                align-items: flex-start;
+                            }
+                            #coachList {
+                                margin-left: 0;
+                                margin-top: 5px;
+                                width: 100%;
+                            }
+                        }
                     `;
                     document.head.appendChild(style);
                 }
@@ -736,15 +862,18 @@
                 const selectedSeats = document.querySelectorAll('.seat.selected');
                 const seatList = document.querySelector('.seat-list');
                 const totalPrice = document.querySelector('.total-price');
+                const proceedBtn = document.querySelector('.proceed-payment');
                 
                 if(selectedSeats.length === 0) {
                     seatList.innerHTML = '<p>No seats selected</p>';
                     totalPrice.textContent = '₹0';
+                    proceedBtn.disabled = true;
                     return;
                 }
                 
                 let seatNumbers = [];
                 let price = 0;
+                let selectedSeatsData = [];
                 
                 selectedSeats.forEach(seat => {
                     const coachType = seat.dataset.coachType;
@@ -755,10 +884,22 @@
                     if(coachType === 'SL') price += 750;
                     else if(coachType === '3A') price += 1500;
                     else if(coachType === '2A') price += 2200;
+                    
+                    // Store selected seat data
+                    selectedSeatsData.push({
+                        coach: coachType,
+                        seat: seatNumber,
+                        price: coachType === 'SL' ? 750 : (coachType === '3A' ? 1500 : 2200)
+                    });
                 });
+                
+                // Store selected seats in session storage
+                sessionStorage.setItem('selectedSeats', JSON.stringify(selectedSeatsData));
+                sessionStorage.setItem('totalPrice', price);
                 
                 seatList.innerHTML = `<p>Selected Seats: ${seatNumbers.join(', ')}</p>`;
                 totalPrice.textContent = `₹${price}`;
+                proceedBtn.disabled = false;
             }
             
             // Proceed to payment button
