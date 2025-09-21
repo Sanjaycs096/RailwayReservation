@@ -1,3 +1,25 @@
+    <!-- Seat Selection Modal -->
+    <div id="seatSelectionModal" class="modal">
+        <div class="modal-content" style="max-width:700px;">
+            <span class="close" onclick="this.closest('.modal').style.display='none'">&times;</span>
+            <div class="modal-header">
+                <h2>Select Coach & Seats</h2>
+            </div>
+            <div class="modal-body">
+                <div class="train-info"></div>
+                <div class="coach-select" style="margin:16px 0;">
+                    <label for="coachList">Choose Coach/Class:</label>
+                    <select id="coachList" style="margin-left:8px;"></select>
+                </div>
+                <div class="seat-map" style="display:flex;flex-wrap:wrap;gap:6px 10px;margin-bottom:16px;"></div>
+                <div class="seat-list" style="margin-bottom:8px;"></div>
+                <div class="seat-summary" style="margin-bottom:8px;">
+                    <span class="total-price">₹0</span>
+                </div>
+                <button class="btn btn-primary proceed-payment">Proceed to Payment</button>
+            </div>
+        </div>
+    </div>
 <!DOCTYPE html>
 <html lang="en">
 <head>

@@ -308,7 +308,18 @@ function displayTrainResults(trains, passengers) {
         // Add event listeners to select buttons
         const selectButtons = trainResults.querySelectorAll('.select-train');
         selectButtons.forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', async function() {
+                // Check if passenger is logged in
+                let passengerEmail = sessionStorage.getItem('email');
+                if (!passengerEmail) {
+                    // Not logged in, show login/signup modal
+                    showAlert('Please login or register to book tickets.', 'error');
+                    document.getElementById('loginModal').style.display = 'block';
+                    // Wait for login/signup to complete
+                    await waitForPassengerLogin();
+                    passengerEmail = sessionStorage.getItem('email');
+                    if (!passengerEmail) return; // User closed modal or did not login
+                }
                 const trainId = this.getAttribute('data-train-id');
                 const trainName = this.getAttribute('data-train-name');
                 const trainPrice = this.getAttribute('data-train-price');
@@ -316,7 +327,6 @@ function displayTrainResults(trains, passengers) {
                 const trainTo = this.getAttribute('data-train-to');
                 const trainDeparture = this.getAttribute('data-train-departure');
                 const trainArrival = this.getAttribute('data-train-arrival');
-                
                 // Store selected train in session storage
                 const selectedTrain = {
                     id: trainId,
@@ -326,14 +336,12 @@ function displayTrainResults(trains, passengers) {
                     to: trainTo,
                     departure: trainDeparture,
                     arrival: trainArrival,
-                    passengers: passengers
+                    passengers: passengers,
+                    passengerEmail: passengerEmail
                 };
-                
                 sessionStorage.setItem('selectedTrain', JSON.stringify(selectedTrain));
-                
                 // Close train results modal
                 modal.style.display = 'none';
-                
                 // Open seat selection modal
                 const seatModal = document.getElementById('seatSelectionModal');
                 if (seatModal) {
@@ -343,6 +351,28 @@ function displayTrainResults(trains, passengers) {
                 }
             });
         });
+
+        // Helper: Wait for passenger login/signup
+        function waitForPassengerLogin() {
+            return new Promise(resolve => {
+                // Listen for sessionStorage change (login/signup sets 'email')
+                const checkLogin = () => {
+                    if (sessionStorage.getItem('email')) {
+                        window.removeEventListener('storage', checkLogin);
+                        resolve();
+                    }
+                };
+                window.addEventListener('storage', checkLogin);
+                // Also poll every 500ms in case login happens in same tab
+                const interval = setInterval(() => {
+                    if (sessionStorage.getItem('email')) {
+                        clearInterval(interval);
+                        window.removeEventListener('storage', checkLogin);
+                        resolve();
+                    }
+                }, 500);
+            });
+        }
     }
     
     // Show modal
@@ -353,7 +383,6 @@ function displayTrainResults(trains, passengers) {
 function updateSeatSelectionModal(train) {
     const modal = document.getElementById('seatSelectionModal');
     if (!modal) return;
-    
     const trainInfo = modal.querySelector('.train-info');
     if (trainInfo) {
         trainInfo.innerHTML = `
@@ -363,7 +392,31 @@ function updateSeatSelectionModal(train) {
             <p><strong>Passengers:</strong> ${train.passengers} <strong>Total Price:</strong> ₹${train.price}</p>
         `;
     }
-    
+    // Fetch available coaches from backend
+    const coachList = modal.querySelector('#coachList');
+    coachList.innerHTML = '<option>Loading...</option>';
+    fetch(`/api/trains/${train.id}/coaches`)
+        .then(res => res.json())
+        .then(data => {
+            if (!data.coaches || data.coaches.length === 0) {
+                coachList.innerHTML = '<option>No coaches available</option>';
+                return;
+            }
+            coachList.innerHTML = '';
+            data.coaches.forEach(coach => {
+                const opt = document.createElement('option');
+                opt.value = coach.coach_number;
+                opt.textContent = `${coach.coach_number} (${coach.class || 'Class'})`;
+                coachList.appendChild(opt);
+            });
+            // Auto-select first coach
+            coachList.selectedIndex = 0;
+            updateSeatMap(train.id, coachList.value);
+        });
+    // On coach change, update seat map
+    coachList.onchange = function() {
+        updateSeatMap(train.id, coachList.value);
+    };
     // Reset seat selection
     resetSeatSelection();
 }
@@ -419,58 +472,58 @@ function initSeatSelection() {
 
 // Update seat map based on selected coach
 function updateSeatMap(coachId) {
+    // Overwrite: fetch seat map from backend and render
     const seatMap = document.querySelector('.seat-map');
     if (!seatMap) return;
-    
-    // Clear previous seat map
-    seatMap.innerHTML = '';
-    
-    // Generate random seat availability for demo purposes
-    const totalSeats = 40; // 10 rows x 4 seats
-    const bookedSeats = [];
-    
-    // Randomly mark some seats as booked
-    const numBookedSeats = Math.floor(Math.random() * 15) + 5; // 5 to 20 seats booked
-    
-    for (let i = 0; i < numBookedSeats; i++) {
-        let seatNum;
-        do {
-            seatNum = Math.floor(Math.random() * totalSeats) + 1;
-        } while (bookedSeats.includes(seatNum));
-        
-        bookedSeats.push(seatNum);
-    }
-    
-    // Create seat map
-    for (let i = 1; i <= totalSeats; i++) {
-        const seat = document.createElement('div');
-        seat.className = 'seat';
-        
-        // Determine seat status
-        if (bookedSeats.includes(i)) {
-            seat.classList.add('booked');
-            seat.setAttribute('data-status', 'booked');
-        } else {
-            seat.classList.add('available');
-            seat.setAttribute('data-status', 'available');
-        }
-        
-        // Set seat number and coach
-        seat.setAttribute('data-seat', i);
-        seat.setAttribute('data-coach', coachId);
-        
-        // Add seat number
-        seat.textContent = i;
-        
-        // Add click event for available seats
-        if (!bookedSeats.includes(i)) {
-            seat.addEventListener('click', function() {
-                toggleSeatSelection(this);
-            });
-        }
-        
-        seatMap.appendChild(seat);
-    }
+    seatMap.innerHTML = '<div>Loading seat map...</div>';
+    // Get selected train from session storage
+    const selectedTrain = JSON.parse(sessionStorage.getItem('selectedTrain') || '{}');
+    fetch(`/api/trains/${selectedTrain.id}/coaches/${coachId}/seatmap`)
+        .then(res => res.json())
+        .then(data => {
+            seatMap.innerHTML = '';
+            const seat_map = data.seat_map || {};
+            const totalSeats = Object.keys(seat_map).length || 40;
+            for (let i = 1; i <= totalSeats; i++) {
+                const seat = document.createElement('div');
+                seat.className = 'seat';
+                // Determine seat status
+                const status = seat_map[i] || 'available';
+                if (status === 'unavailable') {
+                    seat.classList.add('booked');
+                    seat.setAttribute('data-status', 'booked');
+                } else {
+                    seat.classList.add('available');
+                    seat.setAttribute('data-status', 'available');
+                }
+                seat.setAttribute('data-seat', i);
+                seat.setAttribute('data-coach', coachId);
+                seat.textContent = i;
+                if (status !== 'unavailable') {
+                    seat.addEventListener('click', async function() {
+                        // Lock seat via backend
+                        const lockRes = await fetch('/api/bookings/lock', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({
+                                train_id: selectedTrain.id,
+                                coach_number: coachId,
+                                seat_number: i
+                            })
+                        });
+                        if (lockRes.ok) {
+                            toggleSeatSelection(this);
+                        } else {
+                            const data = await lockRes.json().catch(()=>({error:'Seat lock failed'}));
+                            showAlert(data.error || 'Seat lock failed', 'error');
+                            this.classList.add('booked');
+                            this.setAttribute('data-status','booked');
+                        }
+                    });
+                }
+                seatMap.appendChild(seat);
+            }
+        });
 }
 
 // Toggle seat selection
@@ -670,29 +723,50 @@ function updatePaymentModal() {
 function processPayment(paymentMethod) {
     // Show loading state
     showAlert('Processing payment...', 'info');
-    
-    // Simulate payment processing delay
-    setTimeout(() => {
-        // Close payment modal
-        const paymentModal = document.getElementById('paymentModal');
-        if (paymentModal) {
-            paymentModal.style.display = 'none';
-        }
-        
-        // Generate booking ID
-        const bookingId = 'BK' + Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
-        
-        // Store booking ID in session storage
-        sessionStorage.setItem('bookingId', bookingId);
-        
-        // Open confirmation modal
-        const confirmationModal = document.getElementById('confirmationModal');
-        if (confirmationModal) {
-            confirmationModal.style.display = 'block';
-            // Update confirmation modal
-            updateConfirmationModal(bookingId, paymentMethod);
-        }
-    }, 2000);
+    // Get selected train, seats, and user
+    const selectedTrain = JSON.parse(sessionStorage.getItem('selectedTrain') || '{}');
+    const selectedSeats = JSON.parse(sessionStorage.getItem('selectedSeats') || '[]');
+    const passengerEmail = selectedTrain.passengerEmail || sessionStorage.getItem('email');
+    // Fetch user_id from backend (optional: cache in sessionStorage)
+    fetch(`/api/users/by_email?email=${encodeURIComponent(passengerEmail)}`)
+        .then(res => res.json())
+        .then(userData => {
+            const user_id = userData.user_id;
+            // Prepare booking data
+            const bookingData = {
+                user_id: user_id,
+                train_id: selectedTrain.id,
+                seats: selectedSeats.map(s => `${s.coach}-${s.seat}`),
+                date: selectedTrain.date,
+                payment_method: paymentMethod
+            };
+            // POST booking to backend
+            fetch('/api/bookings', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(bookingData)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.booking_id) {
+                    // Close payment modal
+                    const paymentModal = document.getElementById('paymentModal');
+                    if (paymentModal) paymentModal.style.display = 'none';
+                    // Store booking ID
+                    sessionStorage.setItem('bookingId', data.booking_id);
+                    // Show confirmation modal
+                    const confirmationModal = document.getElementById('confirmationModal');
+                    if (confirmationModal) {
+                        confirmationModal.style.display = 'block';
+                        updateConfirmationModal(data.booking_id, paymentMethod);
+                    }
+                } else {
+                    showAlert(data.error || 'Booking failed', 'error');
+                }
+            })
+            .catch(() => showAlert('Booking failed', 'error'));
+        })
+        .catch(() => showAlert('User lookup failed', 'error'));
 }
 
 // Update confirmation modal
@@ -826,44 +900,64 @@ function trackBooking(trackingNumber) {
 function displayTrackingResults(data) {
     const trackingResult = document.querySelector('.tracking-result');
     if (!trackingResult) return;
-    
-    // Show tracking result container
     trackingResult.style.display = 'block';
-    
-    // Update train info
+    // Update train info with price and duration
     const trainInfo = trackingResult.querySelector('.train-info');
     if (trainInfo) {
         trainInfo.innerHTML = `
             <h4>${data.trainName} (${data.trainId})</h4>
             <p><strong>From:</strong> ${data.from} <strong>To:</strong> ${data.to}</p>
             <p><strong>Departure:</strong> ${data.departure} <strong>Arrival:</strong> ${data.arrival}</p>
+            <p><strong>Duration:</strong> ${data.duration || '-'} <strong>Price:</strong> ₹${data.price || '-'} </p>
             <div class="train-status">
                 <div class="status-indicator ${data.status === 'On Time' ? 'on-time' : data.status === 'Delayed' ? 'delayed' : 'cancelled'}"></div>
                 <p>${data.status}</p>
             </div>
         `;
     }
-    
+    // Show route map (SVG or Google Static Map)
+    let mapDiv = trackingResult.querySelector('.route-map');
+    if (!mapDiv) {
+        mapDiv = document.createElement('div');
+        mapDiv.className = 'route-map';
+        trackingResult.insertBefore(mapDiv, trackingResult.firstChild);
+    }
+    // If station coordinates available, use Google Static Map, else fallback to SVG
+    if (data.stations && data.stations.length > 1 && data.stations[0].lat && data.stations[0].lng) {
+        // Build Google Static Map URL
+        const path = data.stations.map(s => `${s.lat},${s.lng}`).join('|');
+        const markers = data.stations.map(s => `markers=color:blue%7Clabel:${s.name[0]}%7C${s.lat},${s.lng}`).join('&');
+        const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?size=600x200&path=color:0x0000ff|weight:5|${path}&${markers}&key=YOUR_GOOGLE_MAPS_API_KEY`;
+        mapDiv.innerHTML = `<img src="${mapUrl}" alt="Route Map" style="width:100%;max-width:600px;">`;
+    } else {
+        // Fallback: SVG route
+        let svg = `<svg width="600" height="80">`;
+        const n = data.stations.length;
+        for (let i = 0; i < n; i++) {
+            const x = 50 + i * ((500)/(n-1));
+            svg += `<circle cx="${x}" cy="40" r="12" fill="#1976d2" />`;
+            svg += `<text x="${x}" y="75" font-size="12" text-anchor="middle">${data.stations[i].name}</text>`;
+            if (i < n-1) svg += `<line x1="${x+12}" y1="40" x2="${50 + (i+1)*((500)/(n-1))-12}" y2="40" stroke="#1976d2" stroke-width="4" />`;
+        }
+        svg += `</svg>`;
+        mapDiv.innerHTML = svg;
+    }
     // Update train progress
     const progressFill = trackingResult.querySelector('.progress-fill');
     if (progressFill) {
-        progressFill.style.width = `${data.progress}%`;
+        progressFill.style.width = `${data.progress || 0}%`;
     }
-    
     // Update stations
     const stations = trackingResult.querySelector('.stations');
     if (stations) {
         stations.innerHTML = '';
-        
         data.stations.forEach(station => {
             const stationElement = document.createElement('div');
             stationElement.className = `station ${station.status === 'departed' ? 'passed' : station.status === 'current' ? 'current' : ''}`;
-            
             stationElement.innerHTML = `
                 <p>${station.name}</p>
                 <p>${station.time}</p>
             `;
-            
             stations.appendChild(stationElement);
         });
     }

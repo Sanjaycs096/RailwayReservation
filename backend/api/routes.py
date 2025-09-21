@@ -1,4 +1,17 @@
 
+def register_routes(app, db):
+    api = Blueprint('api', __name__)
+
+    @api.route('/api/users/by_email')
+    def get_user_by_email():
+        email = request.args.get('email')
+        if not email:
+            return jsonify({'error': 'Email required'}), 400
+        user = db.users.find_one({'email': email})
+        if not user:
+            return jsonify({'error': 'User not found'}), 404
+        return jsonify({'user_id': str(user['_id'])}), 200
+
 from flask import Blueprint, request, jsonify
 from bson import ObjectId
 import json
