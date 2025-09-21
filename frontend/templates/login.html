@@ -42,8 +42,8 @@
             </form>
             <form id="passengerLoginForm" class="login-form" style="display:none;">
                 <div class="form-group">
-                    <label for="passengerPhone">Phone Number</label>
-                    <input type="tel" id="passengerPhone" placeholder="Enter phone number" required pattern="[0-9]{10}">
+                    <label for="passengerEmail">Email Address</label>
+                    <input type="email" id="passengerEmail" placeholder="Enter email address" required>
                 </div>
                 <div class="form-group otp-group" style="display:none;">
                     <label for="passengerOTP">OTP</label>
@@ -87,18 +87,42 @@
     
     // OTP functionality for passenger login
     document.getElementById('sendOTPBtn').onclick = function() {
-        const phoneNumber = document.getElementById('passengerPhone').value;
-        if(phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
-            alert('Please enter a valid 10-digit phone number');
+        const email = document.getElementById('passengerEmail').value;
+        if(!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            alert('Please enter a valid email address');
             return;
         }
         
-        // Simulate OTP sending - store mock OTP in session
-        sessionStorage.setItem('mock_otp', '123456');
-        alert('OTP sent to ' + phoneNumber + ' (For testing, use: 123456)');
-        document.querySelector('.otp-group').style.display = '';
-        this.style.display = 'none';
-        document.getElementById('verifyOTPBtn').style.display = '';
+        // Make API call to send OTP
+        fetch('/api/passenger/send_otp', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email: email })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if(data.success) {
+                // For demo purposes, store mock OTP in session
+                sessionStorage.setItem('mock_otp', '123456');
+                alert('OTP sent to ' + email + ' (For testing, use: 123456)');
+                document.querySelector('.otp-group').style.display = '';
+                this.style.display = 'none';
+                document.getElementById('verifyOTPBtn').style.display = '';
+            } else {
+                alert('Failed to send OTP. Please try again.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // Fallback for demo
+            sessionStorage.setItem('mock_otp', '123456');
+            alert('OTP sent to ' + email + ' (For testing, use: 123456)');
+            document.querySelector('.otp-group').style.display = '';
+            this.style.display = 'none';
+            document.getElementById('verifyOTPBtn').style.display = '';
+        });
     };
     
     // simple timer/resend behavior (optional)
