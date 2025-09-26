@@ -3,6 +3,9 @@ flask==2.0.3
 flask-cors==3.0.10
 flask-jwt-extended==4.3.1
 
+# Twilio
+twilio==8.10.0
+
 # MongoDB
 pymongo[srv]==4.0.1
 
