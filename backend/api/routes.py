@@ -271,14 +271,45 @@ def register_routes(app, db):
         for field in required_fields:
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
+
+        # Fetch train info to get affected bookings
+        train_id = ObjectId(data['train_id'])
+        train = db.trains.find_one({'_id': train_id})
+        if not train:
+            return jsonify({'error': 'Train not found'}), 404
+
+        # Create the alert
         new_alert = {
-            'train_id': ObjectId(data['train_id']),
+            'train_id': train_id,
             'message': data['message'],
             'type': 'route_deviation',
             'created_at': datetime.utcnow()
         }
-        result = db.alerts.insert_one(new_alert)
-        return jsonify({'message': 'Route deviation alert created', 'alert_id': str(result.inserted_id)}), 201
+        alert_id = db.alerts.insert_one(new_alert).inserted_id
+
+        # Find all bookings for this train and notify passengers
+        affected_bookings = db.bookings.find({'train_id': train_id, 'status': 'confirmed'})
+        for booking in affected_bookings:
+            user = db.users.find_one({'_id': booking['user_id']})
+            if user and user.get('phone'):
+                # Use Twilio to send SMS alert
+                try:
+                    account_sid = current_app.config['TWILIO_ACCOUNT_SID']
+                    auth_token = current_app.config['TWILIO_AUTH_TOKEN']
+                    client = Client(account_sid, auth_token)
+                    
+                    message = client.messages.create(
+                        body=f"Alert for {train.get('name', '')}: {data['message']}",
+                        from_='+12345678901',  # Your Twilio phone number
+                        to=user['phone']
+                    )
+                except Exception as e:
+                    print(f"Error sending SMS to {user['phone']}: {str(e)}")
+
+        return jsonify({
+            'message': 'Route deviation alert created and notifications sent',
+            'alert_id': str(alert_id)
+        }), 201
 
     
     # User routes

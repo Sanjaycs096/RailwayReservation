@@ -1,28 +1,78 @@
 let map = null;
 let currentRoute = null;
 let trainMarker = null;
+let isMapInitialized = false;
 
-function initMap(apiKey) {
-    if (!window.google || !google.maps) {
-        const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMapCallback`;
-        script.async = true;
-        script.defer = true;
-        document.head.appendChild(script);
-    } else {
-        initMapCallback();
+function initMap(accessToken) {
+    if (!accessToken) {
+        console.error('No LocationIQ access token provided');
+        document.getElementById('map').innerHTML = 
+            '<div style="padding: 20px; text-align: center;">Map loading failed. Please try again later.</div>';
+        return;
+    }
+
+    try {
+        // Initialize MapboxGL with LocationIQ token
+        mapboxgl.accessToken = accessToken;
+        
+        const mapElement = document.getElementById('map');
+        if (!mapElement) {
+            console.error('Map container element not found');
+            return;
+        }
+
+        // Create map instance
+        map = new mapboxgl.Map({
+            container: 'map',
+            style: 'https://tiles.locationiq.com/v3/streets/vector.json',
+            center: [78.9629, 20.5937], // Default center (India)
+            zoom: 5
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Add scale control
+        map.addControl(new mapboxgl.ScaleControl({
+            maxWidth: 80,
+            unit: 'metric'
+        }));
+
+        // Initialize marker but don't add to map yet
+        trainMarker = new mapboxgl.Marker({
+            element: createTrainMarkerElement()
+        });
+
+        isMapInitialized = true;
+
+        // Handle map load complete
+        map.on('load', () => {
+            console.log('Map loaded successfully');
+        });
+
+    } catch (error) {
+        console.error('Error initializing map:', error);
+        document.getElementById('map').innerHTML = 
+            '<div style="padding: 20px; text-align: center;">Map loading failed. Please try again later.</div>';
     }
 }
 
 function initMapCallback() {
-    // Default center (India)
-    const center = { lat: 20.5937, lng: 78.9629 };
+    try {
+        const mapElement = document.getElementById('map');
+        if (!mapElement) {
+            console.error('Map container element not found');
+            return;
+        }
 
-    // Create map
-    map = new google.maps.Map(document.getElementById('map'), {
-        center: center,
-        zoom: 5,
-        styles: [
+        // Default center (India)
+        const center = { lat: 20.5937, lng: 78.9629 };
+
+        // Create map
+        map = new google.maps.Map(mapElement, {
+            center: center,
+            zoom: 5,
+            styles: [
             {
                 "featureType": "administrative",
                 "elementType": "geometry",
@@ -76,20 +126,36 @@ function initMapCallback() {
     });
 }
 
-function geocodeStation(stationName) {
-    return new Promise((resolve, reject) => {
-        const geocoder = new google.maps.Geocoder();
-        geocoder.geocode(
-            { address: `${stationName} railway station, India` },
-            (results, status) => {
-                if (status === 'OK' && results[0]) {
-                    resolve(results[0].geometry.location);
-                } else {
-                    reject(new Error(`Could not geocode station: ${stationName}`));
-                }
-            }
+function createTrainMarkerElement() {
+    const el = document.createElement('div');
+    el.className = 'train-marker';
+    el.style.width = '32px';
+    el.style.height = '32px';
+    el.style.backgroundImage = 'url(../static/images/train-icon.png)';
+    el.style.backgroundSize = 'cover';
+    return el;
+}
+
+async function geocodeStation(stationName) {
+    try {
+        const response = await fetch(
+            `https://us1.locationiq.com/v1/search.php?key=${mapboxgl.accessToken}&q=${encodeURIComponent(stationName + ' railway station, India')}&format=json`
         );
-    });
+        
+        if (!response.ok) {
+            throw new Error('Geocoding failed');
+        }
+
+        const data = await response.json();
+        if (data && data[0]) {
+            return [parseFloat(data[0].lon), parseFloat(data[0].lat)];
+        } else {
+            throw new Error(`Could not geocode station: ${stationName}`);
+        }
+    } catch (error) {
+        console.error('Geocoding error:', error);
+        throw error;
+    }
 }
 
 async function showTrainRoute(trainData) {
@@ -99,88 +165,90 @@ async function showTrainRoute(trainData) {
     }
 
     // Clear existing route
-    if (currentRoute) {
-        currentRoute.setMap(null);
-        currentRoute = null;
+    if (map.getSource('route')) {
+        map.removeLayer('route');
+        map.removeSource('route');
     }
-    trainMarker.setMap(null);
+    if (trainMarker) {
+        trainMarker.remove();
+    }
 
     try {
         // Get coordinates for source and destination
-        const [sourcePos, destPos] = await Promise.all([
+        const [sourceCoords, destCoords] = await Promise.all([
             geocodeStation(trainData.from),
             geocodeStation(trainData.to)
         ]);
 
-        // Draw route
-        const directionsService = new google.maps.DirectionsService();
-        const response = await new Promise((resolve, reject) => {
-            directionsService.route({
-                origin: sourcePos,
-                destination: destPos,
-                travelMode: 'DRIVING' // Using DRIVING as trains mode is not available
-            }, (result, status) => {
-                if (status === 'OK') {
-                    resolve(result);
-                } else {
-                    reject(new Error('Could not calculate route'));
-                }
-            });
-        });
+        // Fetch route from LocationIQ Directions API
+        const response = await fetch(
+            `https://us1.locationiq.com/v1/directions/driving/${sourceCoords[0]},${sourceCoords[1]};${destCoords[0]},${destCoords[1]}?key=${mapboxgl.accessToken}&steps=true&alternatives=false&geometries=geojson`
+        );
 
-        // Create route with custom styling
-        currentRoute = new google.maps.DirectionsRenderer({
-            map: map,
-            suppressMarkers: true,
-            preserveViewport: false,
-            polylineOptions: {
-                strokeColor: '#1976d2',
-                strokeWeight: 4
+        if (!response.ok) {
+            throw new Error('Could not calculate route');
+        }
+
+        const data = await response.json();
+        if (!data.routes || !data.routes[0]) {
+            throw new Error('No route found');
+        }
+
+        // Add the route to the map
+        map.addSource('route', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                properties: {},
+                geometry: data.routes[0].geometry
             }
         });
-        currentRoute.setDirections(response);
+
+        map.addLayer({
+            id: 'route',
+            type: 'line',
+            source: 'route',
+            layout: {
+                'line-join': 'round',
+                'line-cap': 'round'
+            },
+            paint: {
+                'line-color': '#1976d2',
+                'line-width': 4,
+                'line-opacity': 0.8
+            }
+        });
 
         // Add station markers
-        new google.maps.Marker({
-            position: sourcePos,
-            map: map,
-            title: trainData.from,
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                fillColor: '#1976d2',
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 2,
-                scale: 7
-            }
-        });
+        new mapboxgl.Marker({
+            element: createStationMarkerElement(trainData.from),
+            anchor: 'center'
+        })
+            .setLngLat(sourceCoords)
+            .addTo(map);
 
-        new google.maps.Marker({
-            position: destPos,
-            map: map,
-            title: trainData.to,
-            icon: {
-                path: google.maps.SymbolPath.CIRCLE,
-                fillColor: '#1976d2',
-                fillOpacity: 1,
-                strokeColor: '#fff',
-                strokeWeight: 2,
-                scale: 7
-            }
-        });
+        new mapboxgl.Marker({
+            element: createStationMarkerElement(trainData.to),
+            anchor: 'center'
+        })
+            .setLngLat(destCoords)
+            .addTo(map);
 
         // Position train marker and animate
         if (trainData.progress) {
-            const route = response.routes[0].overview_path;
-            trainMarker.setMap(map);
-            animateTrainAlongRoute(route, trainData.progress);
+            const coordinates = data.routes[0].geometry.coordinates;
+            trainMarker
+                .setLngLat(coordinates[0])
+                .addTo(map);
+            animateTrainAlongRoute(coordinates, trainData.progress);
         }
 
-        // Update bounds to show entire route
-        const bounds = new google.maps.LatLngBounds();
-        bounds.extend(sourcePos);
-        bounds.extend(destPos);
-        map.fitBounds(bounds);
+        // Fit map to show entire route
+        const bounds = new mapboxgl.LngLatBounds();
+        data.routes[0].geometry.coordinates.forEach(coord => {
+            bounds.extend(coord);
+        });
+        map.fitBounds(bounds, { padding: 50 });
 
         // Start real-time updates if status is Running
         if (trainData.status === 'Running') {
@@ -193,6 +261,18 @@ async function showTrainRoute(trainData) {
     }
 }
 
+function createStationMarkerElement(stationName) {
+    const el = document.createElement('div');
+    el.className = 'station-marker';
+    el.style.width = '14px';
+    el.style.height = '14px';
+    el.style.borderRadius = '50%';
+    el.style.backgroundColor = '#1976d2';
+    el.style.border = '2px solid #ffffff';
+    el.title = stationName;
+    return el;
+}
+
 let animationInterval = null;
 
 // Start real-time updates for a train
@@ -201,27 +281,34 @@ function startRealtimeUpdates(trainData) {
 
     // Listen for train position updates
     window.socket.on(`train_position_${trainData._id}`, (data) => {
-        if (data.progress && currentRoute) {
-            const route = currentRoute.getDirections().routes[0].overview_path;
-            animateTrainAlongRoute(route, data.progress);
+        if (data.progress && map.getSource('route')) {
+            const coordinates = map.getSource('route')._data.geometry.coordinates;
+            animateTrainAlongRoute(coordinates, data.progress);
         }
     });
 }
 
-function updateTrainPosition(trainId, position, rotation) {
-    if (!trainMarker || !position) return;
+function updateTrainPosition(coordinates, progress) {
+    if (!trainMarker || !coordinates || coordinates.length < 2) return;
 
-    trainMarker.setPosition(position);
-    if (rotation !== undefined) {
-        trainMarker.setIcon({
-            ...trainMarker.getIcon(),
-            rotation: rotation
-        });
+    // Find position along the route based on progress
+    const pointIndex = Math.floor((coordinates.length - 1) * (progress / 100));
+    const point = coordinates[pointIndex];
+    
+    // Calculate rotation based on next point
+    let rotation = 0;
+    if (pointIndex < coordinates.length - 1) {
+        const nextPoint = coordinates[pointIndex + 1];
+        rotation = getBearing(point, nextPoint);
     }
+
+    // Update marker position and rotation
+    trainMarker.setLngLat(point);
+    trainMarker.getElement().style.transform = `rotate(${rotation}deg)`;
 }
 
-function animateTrainAlongRoute(route, progress) {
-    if (!route || route.length < 2) return;
+function animateTrainAlongRoute(coordinates, progress) {
+    if (!coordinates || coordinates.length < 2) return;
 
     // Clear existing animation
     if (animationInterval) {
@@ -229,64 +316,40 @@ function animateTrainAlongRoute(route, progress) {
         animationInterval = null;
     }
 
-    // Calculate total distance
-    let totalDistance = 0;
-    for (let i = 1; i < route.length; i++) {
-        totalDistance += google.maps.geometry.spherical.computeDistanceBetween(
-            route[i-1],
-            route[i]
-        );
-    }
-
-    // Find position based on progress
-    const targetDistance = (progress / 100) * totalDistance;
-    let currentDistance = 0;
-    let segmentIndex = 0;
-
-    for (let i = 1; i < route.length; i++) {
-        const segmentDistance = google.maps.geometry.spherical.computeDistanceBetween(
-            route[i-1],
-            route[i]
-        );
-
-        if (currentDistance + segmentDistance >= targetDistance) {
-            segmentIndex = i - 1;
-            break;
-        }
-
-        currentDistance += segmentDistance;
-    }
-
-    // Animate train movement
     let currentProgress = progress;
     animationInterval = setInterval(() => {
-        const segmentDistance = google.maps.geometry.spherical.computeDistanceBetween(
-            route[segmentIndex],
-            route[segmentIndex + 1]
-        );
+        updateTrainPosition(coordinates, currentProgress);
 
-        const remainingDistance = targetDistance - currentDistance;
-        const fraction = remainingDistance / segmentDistance;
-        const position = google.maps.geometry.spherical.interpolate(
-            route[segmentIndex],
-            route[segmentIndex + 1],
-            fraction
-        );
-
-        // Calculate heading for rotation
-        const heading = google.maps.geometry.spherical.computeHeading(
-            route[segmentIndex],
-            route[segmentIndex + 1]
-        );
-
-        // Update train marker
-        updateTrainPosition(null, position, heading);
-
-        // Update progress for smooth animation
         currentProgress += 0.1;
         if (currentProgress >= 100) {
             clearInterval(animationInterval);
             animationInterval = null;
         }
-    }, 100); // Update every 100ms for smooth animation
+    }, 100);
+}
+
+function getBearing(start, end) {
+    const startLat = toRad(start[1]);
+    const startLng = toRad(start[0]);
+    const endLat = toRad(end[1]);
+    const endLng = toRad(end[0]);
+
+    const dLng = endLng - startLng;
+
+    const y = Math.sin(dLng) * Math.cos(endLat);
+    const x = Math.cos(startLat) * Math.sin(endLat) -
+        Math.sin(startLat) * Math.cos(endLat) * Math.cos(dLng);
+
+    let bearing = toDeg(Math.atan2(y, x));
+    bearing = (bearing + 360) % 360;
+
+    return bearing;
+}
+
+function toRad(deg) {
+    return deg * Math.PI / 180;
+}
+
+function toDeg(rad) {
+    return rad * 180 / Math.PI;
 }

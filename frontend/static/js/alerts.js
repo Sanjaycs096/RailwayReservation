@@ -428,6 +428,54 @@ function showAlertError(message) {
     }
 }
 
+// Show a general alert message
+function showAlert(message, type = 'info') {
+    // Create alert container if it doesn't exist
+    let alertContainer = document.getElementById('alert-container');
+    if (!alertContainer) {
+        alertContainer = document.createElement('div');
+        alertContainer.id = 'alert-container';
+        alertContainer.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        `;
+        document.body.appendChild(alertContainer);
+    }
+
+    // Create alert element
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type}`;
+    alert.style.cssText = `
+        padding: 12px 20px;
+        border-radius: 4px;
+        background-color: ${type === 'error' ? '#fee2e2' : '#e0f2fe'};
+        color: ${type === 'error' ? '#dc2626' : '#0369a1'};
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 8px;
+        animation: slideIn 0.3s ease-out;
+    `;
+    alert.textContent = message;
+
+    // Add alert to container
+    alertContainer.appendChild(alert);
+
+    // Remove alert after 5 seconds
+    setTimeout(() => {
+        alert.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => {
+            alertContainer.removeChild(alert);
+            if (alertContainer.children.length === 0) {
+                document.body.removeChild(alertContainer);
+            }
+        }, 300);
+    }, 5000);
+}
+
 function generateUniqueId() {
     return Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 }

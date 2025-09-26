@@ -16,14 +16,43 @@
     width: 32px;
     height: 32px;
     cursor: pointer;
+    transition: transform 0.3s ease-in-out;
 }
 
 .station-marker {
     background: #1976d2;
     border: 2px solid white;
     border-radius: 50%;
-    width: 12px;
-    height: 12px;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.station-marker:hover {
+    box-shadow: 0 0 0 4px rgba(25, 118, 210, 0.3);
+}
+
+/* MapboxGL specific styles */
+.mapboxgl-ctrl-group {
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.mapboxgl-ctrl-group button {
+    width: 30px;
+    height: 30px;
+}
+
+.mapboxgl-popup {
+    max-width: 200px;
+}
+
+.mapboxgl-popup-content {
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .route-info {

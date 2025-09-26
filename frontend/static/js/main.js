@@ -5,23 +5,33 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize real-time updates
     initRealtimeUpdates();
 
-    // Initialize Google Maps
-    fetch('/api/config/maps')
-        .then(res => res.json())
-        .then(data => {
-            if (data.apiKey) {
+    // Initialize Google Maps if tracking page is open
+    const mapContainer = document.getElementById('map');
+    if (mapContainer) {
+        fetch('/api/config/maps')
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch Maps API key');
+                return res.json();
+            })
+            .then(data => {
+                if (!data.apiKey) throw new Error('Maps API key not found');
                 initMap(data.apiKey);
-            } else {
-                console.error('Google Maps API key not found');
-            }
-        })
-        .catch(err => console.error('Error loading Google Maps:', err));
+            })
+            .catch(err => {
+                console.error('Error loading Google Maps:', err);
+                mapContainer.innerHTML = 
+                    '<div style="padding: 20px; text-align: center; color: #e74c3c;">Failed to load map. Please try again later.</div>';
+            });
 
     // Phone input initialization and validation
     const input = document.getElementById('passengerPhone');
     if (input) {
-        phoneInput = intlTelInput.init(input, {
-            initialCountry: 'in'
+        phoneInput = window.intlTelInput(input, {
+            initialCountry: 'in',
+            separateDialCode: true,
+            utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/utils.js",
+            preferredCountries: ['in'],
+            onlyCountries: ['in']
         });
     }
 });
@@ -236,17 +246,38 @@ async function verifyOTP(otp) {
     }
 }
 
-// Initialize event listeners for OTP
+    // Initialize event listeners for OTP and registration
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize phone input
-    const input = document.getElementById('passengerPhone');
-    if (input) {
-        phoneInput = intlTelInput.init(input, {
-            initialCountry: 'in'
-        });
-    }
+    // Initialize all phone inputs
+    const phoneInputs = [
+        document.getElementById('passengerPhone'),
+        document.getElementById('registerPhone')
+    ];
+    
+    phoneInputs.forEach(input => {
+        if (input) {
+            window.intlTelInput(input, {
+                initialCountry: 'in',
+                separateDialCode: true,
+                utilsScript: "https://cdnjs.cloudflare.com/ajax/libs/intl-tel-input/17.0.19/js/utils.js",
+                preferredCountries: ['in'],
+                onlyCountries: ['in']
+            });
+        }
+    });
 
-    // OTP button event listeners
+    // Initialize registration modal link
+    const registerLink = document.getElementById('registerRefLink');
+    const loginModal = document.getElementById('loginModal');
+    const registerModal = document.getElementById('registerModal');
+    
+    if (registerLink && loginModal && registerModal) {
+        registerLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            loginModal.style.display = 'none';
+            registerModal.style.display = 'block';
+        });
+    }    // OTP button event listeners
     const sendOTPBtn = document.getElementById('sendOTPBtn');
     const resendOTPBtn = document.getElementById('resendOTPBtn');
     const verifyOTPBtn = document.getElementById('verifyOTPBtn');
