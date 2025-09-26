@@ -17,6 +17,14 @@ class Config:
     # JWT settings
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'jwt-secret-key-change-in-production')
     JWT_ACCESS_TOKEN_EXPIRES = 3600  # 1 hour
+    
+    # Twilio settings
+    TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
+    TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
+    TWILIO_VERIFY_SID = os.getenv('TWILIO_VERIFY_SID')
+    
+    # Google Maps settings
+    GOOGLE_MAPS_API_KEY = os.getenv('GOOGLE_MAPS_API_KEY')
 
 class DevelopmentConfig(Config):
     """Development configuration"""

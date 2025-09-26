@@ -24,73 +24,89 @@ def register_routes(app, db):
     api = Blueprint('api', __name__)
 
     # --- Passenger Phone/OTP Login ---
-    import random
-    from datetime import timedelta
-
-    import smtplib
-    from email.mime.text import MIMEText
-    import os
+    from twilio.rest import Client
+    from flask import current_app
 
     @api.route('/api/passenger/send_otp', methods=['POST'])
     def send_passenger_otp():
         data = request.get_json()
         phone = data.get('phone')
-        email = data.get('email')
-        if not email:
-            return jsonify({'error': 'Email required for OTP'}), 400
-        otp = str(random.randint(100000, 999999))
-        # Store OTP in MongoDB with expiry (5 min)
-        db.otps.delete_many({'email': email})  # Remove old OTPs for this email
-        db.otps.insert_one({
-            'email': email,
-            'otp': otp,
-            'created_at': datetime.utcnow(),
-            'expires_at': datetime.utcnow() + timedelta(minutes=5)
-        })
-        # Send OTP via Gmail SMTP
-        gmail_user = os.environ.get('GMAIL_USER')
-        gmail_pass = os.environ.get('GMAIL_PASS')
-        if not gmail_user or not gmail_pass:
-            return jsonify({'error': 'Email service not configured'}), 500
-        msg = MIMEText(f'Your RailConnect OTP is: {otp}')
-        msg['Subject'] = 'Your RailConnect OTP'
-        msg['From'] = gmail_user
-        msg['To'] = email
+        
+        if not phone:
+            return jsonify({'error': 'Phone number required for OTP'}), 400
+            
         try:
-            with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-                server.login(gmail_user, gmail_pass)
-                server.sendmail(gmail_user, [email], msg.as_string())
+            # Initialize Twilio client
+            account_sid = current_app.config['TWILIO_ACCOUNT_SID']
+            auth_token = current_app.config['TWILIO_AUTH_TOKEN']
+            verify_sid = current_app.config['TWILIO_VERIFY_SID']
+            
+            if not all([account_sid, auth_token, verify_sid]):
+                return jsonify({'error': 'Twilio service not configured'}), 500
+                
+            client = Client(account_sid, auth_token)
+            
+            # Send verification code via Twilio Verify
+            verification = client.verify \
+                .v2.services(verify_sid) \
+                .verifications \
+                .create(to=phone, channel='sms')
+                
+            return jsonify({
+                'message': 'OTP sent to phone number',
+                'status': verification.status
+            }), 200
+            
         except Exception as e:
             return jsonify({'error': f'Failed to send OTP: {str(e)}'}), 500
-        return jsonify({'message': 'OTP sent to email'}), 200
 
     @api.route('/api/passenger/verify_otp', methods=['POST'])
     def verify_passenger_otp():
         data = request.get_json()
-        email = data.get('email')
+        phone = data.get('phone')
         otp = data.get('otp')
-        if not email or not otp:
-            return jsonify({'error': 'Email and OTP required'}), 400
-        otp_doc = db.otps.find_one({'email': email, 'otp': otp})
-        if not otp_doc:
-            return jsonify({'error': 'Invalid OTP'}), 401
-        if otp_doc.get('expires_at') < datetime.utcnow():
-            db.otps.delete_many({'email': email})
-            return jsonify({'error': 'OTP expired'}), 401
-        db.otps.delete_many({'email': email})  # Remove OTP after use
-        # Find or create user
-        user = db.users.find_one({'email': email})
-        if not user:
-            user = {
-                'name': 'Passenger',
-                'email': email,
-                'role': 'passenger',
-                'created_at': datetime.utcnow()
-            }
-            user_id = db.users.insert_one(user).inserted_id
-        else:
-            user_id = user['_id']
-        return jsonify({'message': 'Login successful', 'user_id': str(user_id), 'role': 'passenger'}), 200
+        
+        if not phone or not otp:
+            return jsonify({'error': 'Phone number and OTP required'}), 400
+            
+        try:
+            # Initialize Twilio client
+            account_sid = current_app.config['TWILIO_ACCOUNT_SID']
+            auth_token = current_app.config['TWILIO_AUTH_TOKEN']
+            verify_sid = current_app.config['TWILIO_VERIFY_SID']
+            
+            client = Client(account_sid, auth_token)
+            
+            # Verify the code
+            verification_check = client.verify \
+                .v2.services(verify_sid) \
+                .verification_checks \
+                .create(to=phone, code=otp)
+                
+            if verification_check.status == 'approved':
+                # Find or create user
+                user = db.users.find_one({'phone': phone})
+                if not user:
+                    user = {
+                        'name': 'Passenger',
+                        'phone': phone,
+                        'role': 'passenger',
+                        'created_at': datetime.utcnow()
+                    }
+                    user_id = db.users.insert_one(user).inserted_id
+                else:
+                    user_id = user['_id']
+                
+                return jsonify({
+                    'message': 'Phone number verified successfully',
+                    'user_id': str(user_id),
+                    'role': 'passenger'
+                }), 200
+            else:
+                return jsonify({'error': 'Invalid OTP'}), 401
+                
+        except Exception as e:
+            return jsonify({'error': f'Failed to verify OTP: {str(e)}'}), 500
 
     # --- Admin: Clear All Bookings ---
     @api.route('/api/admin/bookings/clear', methods=['POST'])
@@ -388,12 +404,35 @@ def register_routes(app, db):
     @api.route('/api/tracking/<train_id>', methods=['GET'])
     def get_train_location(train_id):
         # In a real application, this would fetch real-time GPS data
-        # For demo purposes, we'll return mock data
         tracking_info = db.tracking.find_one({'train_id': ObjectId(train_id)})
         
         if not tracking_info:
-            return jsonify({'error': 'Tracking information not available'}), 404
+            # Generate mock data for demo
+            train = db.trains.find_one({'_id': ObjectId(train_id)})
+            if not train:
+                return jsonify({'error': 'Train not found'}), 404
+                
+            import random
+            tracking_info = {
+                'train_id': ObjectId(train_id),
+                'status': 'Running',
+                'current_station': train.get('source'),
+                'next_station': train.get('destination'),
+                'progress': random.randint(10, 90),  # Random progress between 10-90%
+                'speed': random.randint(60, 120),  # Random speed in km/h
+                'delay': random.randint(0, 30),  # Random delay 0-30 minutes
+                'distance': train.get('distance', 1000),  # Default 1000km if not set
+                'duration': train.get('duration', '16h 30m'),
+                'updated_at': datetime.utcnow()
+            }
+            # Save mock data
+            db.tracking.insert_one(tracking_info)
         
+        # Add route points for map
+        if train := db.trains.find_one({'_id': ObjectId(train_id)}):
+            tracking_info['source'] = train.get('source')
+            tracking_info['destination'] = train.get('destination')
+            
         return jsonify({
             'tracking': json.loads(json.dumps(tracking_info, default=str))
         }), 200
@@ -471,6 +510,14 @@ def register_routes(app, db):
             'alert_id': str(result.inserted_id)
         }), 201
     
+    # Maps API Configuration
+    @api.route('/api/config/maps', methods=['GET'])
+    def get_maps_config():
+        from flask import current_app
+        return jsonify({
+            'apiKey': current_app.config.get('GOOGLE_MAPS_API_KEY')
+        }), 200
+
     # Register blueprint with app
     app.register_blueprint(api)
     

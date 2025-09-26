@@ -1,8 +1,31 @@
+
 // Railway Reservation & Tracking Platform - Main JavaScript
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize real-time updates
     initRealtimeUpdates();
+
+    // Initialize Google Maps
+    fetch('/api/config/maps')
+        .then(res => res.json())
+        .then(data => {
+            if (data.apiKey) {
+                initMap(data.apiKey);
+            } else {
+                console.error('Google Maps API key not found');
+            }
+        })
+        .catch(err => console.error('Error loading Google Maps:', err));
+
+    // Phone input initialization and validation
+    const input = document.getElementById('passengerPhone');
+    if (input) {
+        phoneInput = intlTelInput.init(input, {
+            initialCountry: 'in'
+        });
+    }
+});
+
 // Real-time updates using Socket.IO
 function initRealtimeUpdates() {
     // Load Socket.IO client script dynamically if not present
@@ -14,7 +37,8 @@ function initRealtimeUpdates() {
     } else {
         connectSocketIO();
     }
-}
+    // ...existing code...
+// (all initialization code should be above this line)
 
 function connectSocketIO() {
     // Connect to backend Socket.IO server (auto-detect host)
@@ -22,361 +46,366 @@ function connectSocketIO() {
     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
         socket = io('http://localhost:5000');
     } else {
-        socket = io(); // Use same host/port as frontend
+        socket = io();
+    }
+    // ...existing code for socket events...
+
+// Phone input initialization and validation
+let phoneInput = null;
+let otpInterval = null;
+
+function validatePhoneNumber(number) {
+    // Remove spaces and any special characters except +
+    const cleanNumber = number.replace(/[^0-9+]/g, '');
+    
+    // Check if it's a valid phone number format
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(cleanNumber)) {
+        return {
+            isValid: false,
+            error: 'Please enter a valid phone number'
+        };
     }
 
-    // Listen for coach position updates
-    socket.on('coach_position_update', function(data) {
-        // Show alert and update UI if needed
-        showAlert(`Coach ${data.coach_number} position updated: Platform ${data.platform_number}, ${data.position_on_platform} at ${data.station} (ETA: ${data.eta})`, 'info');
-        // Optionally update a live coach/platform display here
-        updateCoachPositionDisplay(data);
-    });
-
-    // Listen for route deviation alerts
-    socket.on('route_deviation_alert', function(data) {
-        showAlert(`Route Deviation Alert: ${data.message}`, 'error');
-        // Optionally update a live alert area here
-        updateRouteDeviationAlertDisplay(data);
-    });
+    // Validate Indian numbers (10 digits with optional +91 prefix)
+    if (cleanNumber.startsWith('+91')) {
+        if (cleanNumber.length !== 13) {
+            return {
+                isValid: false,
+                error: 'Indian phone numbers must be 10 digits'
+            };
+        }
+    }
+    
+    return {
+        isValid: true,
+        number: cleanNumber
+    };
 }
 
-// Update coach/platform display (implement as needed)
-function updateCoachPositionDisplay(data) {
-    // Example: update a div with id 'coach-position-info'
-    const el = document.getElementById('coach-position-info');
-    if (el) {
-        el.innerHTML = `<strong>Coach ${data.coach_number}</strong> at <strong>Platform ${data.platform_number}</strong>, <em>${data.position_on_platform}</em> (${data.station}) ETA: ${data.eta}`;
+function startOTPTimer() {
+    const otpTimer = document.getElementById('otpTimer');
+    const resendOTPBtn = document.getElementById('resendOTPBtn');
+    const verifyOTPBtn = document.getElementById('verifyOTPBtn');
+    
+    let timeLeft = 30;
+    otpTimer.textContent = `(00:${timeLeft.toString().padStart(2, '0')})`;
+    
+    if (otpInterval) clearInterval(otpInterval);
+    
+    otpInterval = setInterval(() => {
+        timeLeft--;
+        otpTimer.textContent = `(00:${timeLeft.toString().padStart(2, '0')})`;
+        
+        if (timeLeft <= 0) {
+            clearInterval(otpInterval);
+            resendOTPBtn.style.display = '';
+            verifyOTPBtn.style.display = 'none';
+            otpTimer.textContent = '(expired)';
+        }
+    }, 1000);
+}
+
+async function sendOTP() {
+    const phoneError = document.getElementById('phoneError');
+    const sendOTPBtn = document.getElementById('sendOTPBtn');
+    const verifyOTPBtn = document.getElementById('verifyOTPBtn');
+    const otpGroup = document.querySelector('.otp-group');
+    
+    phoneError.style.display = 'none';
+    
+    if (!phoneInput) {
+        phoneError.textContent = 'Phone input not initialized';
+        phoneError.style.display = 'block';
+        return;
+    }
+    
+    const phoneValidation = validatePhoneNumber(phoneInput.getNumber());
+    
+    if (!phoneValidation.isValid) {
+        phoneError.textContent = phoneValidation.error;
+        phoneError.style.display = 'block';
+        return;
+    }
+
+    sendOTPBtn.disabled = true;
+    sendOTPBtn.textContent = 'Sending...';
+
+    try {
+        const response = await fetch('/api/passenger/send_otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: phoneValidation.number
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            otpGroup.style.display = '';
+            sendOTPBtn.style.display = 'none';
+            verifyOTPBtn.style.display = '';
+            startOTPTimer();
+            showAlert('OTP sent to your phone number', 'success');
+        } else {
+            phoneError.textContent = data.error || 'Failed to send OTP';
+            phoneError.style.display = 'block';
+            showAlert('Failed to send OTP', 'error');
+        }
+    } catch (err) {
+        phoneError.textContent = 'Error sending OTP';
+        phoneError.style.display = 'block';
+        showAlert('Error sending OTP', 'error');
+    } finally {
+        sendOTPBtn.disabled = false;
+        sendOTPBtn.textContent = 'Send OTP';
     }
 }
 
-// Update route deviation alert display (implement as needed)
-function updateRouteDeviationAlertDisplay(data) {
-    // Example: update a div with id 'route-alert-info'
-    const el = document.getElementById('route-alert-info');
-    if (el) {
-        el.innerHTML = `<span style="color:#e74c3c;font-weight:bold;">Route Deviation: ${data.message}</span>`;
+async function verifyOTP(otp) {
+    const otpError = document.getElementById('otpError');
+    const verifyOTPBtn = document.getElementById('verifyOTPBtn');
+    
+    otpError.style.display = 'none';
+    
+    if (!phoneInput) {
+        otpError.textContent = 'Phone input not initialized';
+        otpError.style.display = 'block';
+        return false;
+    }
+    
+    if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
+        otpError.textContent = 'Please enter a valid 6-digit OTP';
+        otpError.style.display = 'block';
+        return false;
+    }
+
+    verifyOTPBtn.disabled = true;
+    verifyOTPBtn.textContent = 'Verifying...';
+
+    try {
+        const response = await fetch('/api/passenger/verify_otp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                phone: phoneInput.getNumber(),
+                otp: otp
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Store user session
+            sessionStorage.setItem('phone', phoneInput.getNumber());
+            sessionStorage.setItem('userId', data.user_id);
+            sessionStorage.setItem('role', data.role);
+            
+            // Close login modal
+            document.getElementById('loginModal').style.display = 'none';
+            
+            // Clear OTP timer
+            if (otpInterval) clearInterval(otpInterval);
+            
+            showAlert('Phone number verified successfully', 'success');
+
+            // Check for pending booking
+            const pendingBooking = sessionStorage.getItem('pendingBooking');
+            if (pendingBooking) {
+                sessionStorage.removeItem('pendingBooking');
+                const booking = JSON.parse(pendingBooking);
+                bookTrain(booking.train, booking.from, booking.to, booking.date);
+            }
+
+            return true;
+        } else {
+            otpError.textContent = data.error || 'Invalid OTP';
+            otpError.style.display = 'block';
+            showAlert('Invalid OTP', 'error');
+            return false;
+        }
+    } catch (err) {
+        otpError.textContent = 'Error verifying OTP';
+        otpError.style.display = 'block';
+        showAlert('Error verifying OTP', 'error');
+        return false;
+    } finally {
+        verifyOTPBtn.disabled = false;
+        verifyOTPBtn.textContent = 'Verify OTP';
     }
 }
-    // Initialize mobile menu
-    initMobileMenu();
-    
-    // Initialize modals
-    initModals();
-    
-    // Initialize search form
-    initSearchForm();
-    
-    // Initialize tracking form
-    initTrackingForm();
-    
-    // Initialize seat selection
-    initSeatSelection();
-    
-    // Initialize payment options
-    initPaymentOptions();
-    
-    // Initialize booking form
-    initBookingForm();
+
+// Initialize event listeners for OTP
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize phone input
+    const input = document.getElementById('passengerPhone');
+    if (input) {
+        phoneInput = intlTelInput.init(input, {
+            initialCountry: 'in'
+        });
+    }
+
+    // OTP button event listeners
+    const sendOTPBtn = document.getElementById('sendOTPBtn');
+    const resendOTPBtn = document.getElementById('resendOTPBtn');
+    const verifyOTPBtn = document.getElementById('verifyOTPBtn');
+    const passengerLoginForm = document.getElementById('passengerLoginForm');
+
+    if (sendOTPBtn) sendOTPBtn.addEventListener('click', sendOTP);
+    if (resendOTPBtn) resendOTPBtn.addEventListener('click', sendOTP);
+    if (passengerLoginForm) {
+        passengerLoginForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const otp = document.getElementById('passengerOTP').value.trim();
+            await verifyOTP(otp);
+        });
+    }
 });
 
-// Mobile Menu Toggle
-function initMobileMenu() {
-    const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-    const navLinks = document.querySelector('.nav-links');
-    
-    if (mobileMenuBtn && navLinks) {
-        mobileMenuBtn.addEventListener('click', function() {
-            navLinks.classList.toggle('active');
-        });
-    }
-}
-
-// Modal Functionality
-function initModals() {
-    // Get all modal triggers
-    const modalTriggers = document.querySelectorAll('[data-modal]');
-    const closeButtons = document.querySelectorAll('.close');
-    
-    // Add click event to all modal triggers
-    modalTriggers.forEach(trigger => {
-        trigger.addEventListener('click', function() {
-            const modalId = this.getAttribute('data-modal');
-            const modal = document.getElementById(modalId);
-            if (modal) {
-                modal.style.display = 'block';
-            }
-        });
-    });
-    
-    // Add click event to all close buttons
-    closeButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const modal = this.closest('.modal');
-            if (modal) {
-                modal.style.display = 'none';
-            }
-        });
-    });
-    
-    // Close modal when clicking outside of modal content
-    window.addEventListener('click', function(event) {
-        if (event.target.classList.contains('modal')) {
-            event.target.style.display = 'none';
-        }
-    });
-}
-
-// Search Form Functionality
-function initSearchForm() {
-    const searchForm = document.querySelector('.search-form');
-    
-    if (searchForm) {
-        searchForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Get form data
-            const from = searchForm.querySelector('[name="from"]').value;
-            const to = searchForm.querySelector('[name="to"]').value;
-            const date = searchForm.querySelector('[name="date"]').value;
-            const passengers = searchForm.querySelector('[name="passengers"]').value;
-            
-            // Validate form data
-            if (!from || !to || !date || !passengers) {
-                showAlert('Please fill in all fields', 'error');
-                return;
-            }
-            
-            // Simulate API call to search for trains
-            searchTrains(from, to, date, passengers);
-        });
-    }
-}
-
-// Simulate train search API call
+// Train search logic (global scope)
 function searchTrains(from, to, date, passengers) {
-    // Show loading state
+    const trainResults = document.getElementById('trainResults');
     showAlert('Searching for trains...', 'info');
-    
-    // Simulate API delay
-    setTimeout(() => {
-        // Mock train data
-        const trains = [
-            {
-                id: 'TR1001',
-                name: 'Express 1001',
-                from: from,
-                to: to,
-                departure: '08:00 AM',
-                arrival: '11:30 AM',
-                duration: '3h 30m',
-                price: 1250,
-                available_seats: 42
-            },
-            {
-                id: 'TR1002',
-                name: 'Superfast 1002',
-                from: from,
-                to: to,
-                departure: '10:15 AM',
-                arrival: '01:45 PM',
-                duration: '3h 30m',
-                price: 1450,
-                available_seats: 36
-            },
-            {
-                id: 'TR1003',
-                name: 'Intercity 1003',
-                from: from,
-                to: to,
-                departure: '12:30 PM',
-                arrival: '03:45 PM',
-                duration: '3h 15m',
-                price: 1150,
-                available_seats: 28
-            },
-            {
-                id: 'TR1004',
-                name: 'Express 1004',
-                from: from,
-                to: to,
-                departure: '03:00 PM',
-                arrival: '06:15 PM',
-                duration: '3h 15m',
-                price: 1250,
-                available_seats: 52
-            }
-        ];
-        
-        // Display train results
-        displayTrainResults(trains, passengers);
-    }, 1500);
-}
 
-// Display train search results
-function displayTrainResults(trains, passengers) {
-    // Create modal for train results
-    let modal = document.getElementById('trainResultsModal');
-    
-    // If modal doesn't exist, create it
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'trainResultsModal';
-        modal.className = 'modal';
-        
-        const modalContent = `
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <div class="modal-header">
-                    <h2>Available Trains</h2>
-                </div>
-                <div class="modal-body">
-                    <div id="train-results"></div>
-                </div>
-            </div>
-        `;
-        
-        modal.innerHTML = modalContent;
-        document.body.appendChild(modal);
-        
-        // Add event listener to close button
-        const closeBtn = modal.querySelector('.close');
-        closeBtn.addEventListener('click', function() {
-            modal.style.display = 'none';
-        });
-        
-        // Close modal when clicking outside of modal content
-        modal.addEventListener('click', function(event) {
-            if (event.target === modal) {
-                modal.style.display = 'none';
-            }
-        });
-    }
-    
-    // Get train results container
-    const trainResults = modal.querySelector('#train-results');
-    
-    // Clear previous results
-    trainResults.innerHTML = '';
-    
-    // Check if trains are available
-    if (trains.length === 0) {
-        trainResults.innerHTML = '<p class="text-center">No trains available for the selected route and date.</p>';
-    } else {
-        // Create train cards
-        trains.forEach(train => {
-            const trainCard = document.createElement('div');
-            trainCard.className = 'train-card';
-            
-            const totalPrice = train.price * parseInt(passengers);
-            
-            trainCard.innerHTML = `
-                <div class="train-info">
-                    <h4>${train.name} (${train.id})</h4>
-                    <div class="train-details">
-                        <div class="train-time">
-                            <div class="departure">
-                                <p class="time">${train.departure}</p>
-                                <p class="station">${train.from}</p>
+    // Get trains from API
+    fetch('/api/trains/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to, date, passengers })
+    })
+    .then(res => res.json())
+    .then(data => {
+        const trains = data.trains || [];
+        trainResults.innerHTML = '';
+        if (trains.length === 0) {
+            trainResults.innerHTML = '<p class="text-center">No trains available for the selected route and date.</p>';
+        } else {
+            trains.forEach(train => {
+                const trainCard = document.createElement('div');
+                trainCard.className = 'train-card';
+                const totalPrice = train.price * parseInt(passengers);
+                trainCard.innerHTML = `
+                    <div class="train-info">
+                        <h4>${train.name} (${train.id})</h4>
+                        <div class="train-details">
+                            <div class="train-time">
+                                <div class="departure">
+                                    <p class="time">${train.departure}</p>
+                                    <p class="station">${train.from}</p>
+                                </div>
+                                <div class="duration">
+                                    <p>${train.duration}</p>
+                                    <div class="duration-line"></div>
+                                </div>
+                                <div class="arrival">
+                                    <p class="time">${train.arrival}</p>
+                                    <p class="station">${train.to}</p>
+                                </div>
                             </div>
-                            <div class="duration">
-                                <p>${train.duration}</p>
-                                <div class="duration-line"></div>
+                            <div class="train-price">
+                                <p class="price">₹${totalPrice}</p>
+                                <p class="passengers">${passengers} passenger(s)</p>
                             </div>
-                            <div class="arrival">
-                                <p class="time">${train.arrival}</p>
-                                <p class="station">${train.to}</p>
+                            <div class="train-seats">
+                                <p class="seats">${train.available_seats} seats available</p>
                             </div>
-                        </div>
-                        <div class="train-price">
-                            <p class="price">₹${totalPrice}</p>
-                            <p class="passengers">${passengers} passenger(s)</p>
-                        </div>
-                        <div class="train-seats">
-                            <p class="seats">${train.available_seats} seats available</p>
                         </div>
                     </div>
-                </div>
-                <div class="train-actions">
-                    <button class="btn btn-primary select-train" data-train-id="${train.id}" data-train-name="${train.name}" data-train-price="${totalPrice}" data-train-from="${train.from}" data-train-to="${train.to}" data-train-departure="${train.departure}" data-train-arrival="${train.arrival}">Select</button>
-                </div>
-            `;
-            
-            trainResults.appendChild(trainCard);
-        });
-        
-        // Add event listeners to select buttons
-        const selectButtons = trainResults.querySelectorAll('.select-train');
-        selectButtons.forEach(button => {
-            button.addEventListener('click', async function() {
-                // Check if passenger is logged in
-                let passengerEmail = sessionStorage.getItem('email');
-                if (!passengerEmail) {
-                    // Not logged in, show login/signup modal
-                    showAlert('Please login or register to book tickets.', 'error');
-                    document.getElementById('loginModal').style.display = 'block';
-                    // Wait for login/signup to complete
-                    await waitForPassengerLogin();
-                    passengerEmail = sessionStorage.getItem('email');
-                    if (!passengerEmail) return; // User closed modal or did not login
-                }
-                const trainId = this.getAttribute('data-train-id');
-                const trainName = this.getAttribute('data-train-name');
-                const trainPrice = this.getAttribute('data-train-price');
-                const trainFrom = this.getAttribute('data-train-from');
-                const trainTo = this.getAttribute('data-train-to');
-                const trainDeparture = this.getAttribute('data-train-departure');
-                const trainArrival = this.getAttribute('data-train-arrival');
-                // Store selected train in session storage
-                const selectedTrain = {
-                    id: trainId,
-                    name: trainName,
-                    price: trainPrice,
-                    from: trainFrom,
-                    to: trainTo,
-                    departure: trainDeparture,
-                    arrival: trainArrival,
-                    passengers: passengers,
-                    passengerEmail: passengerEmail
-                };
-                sessionStorage.setItem('selectedTrain', JSON.stringify(selectedTrain));
-                // Close train results modal
-                modal.style.display = 'none';
-                // Open seat selection modal
-                const seatModal = document.getElementById('seatSelectionModal');
-                if (seatModal) {
-                    seatModal.style.display = 'block';
-                    // Update train info in seat selection modal
-                    updateSeatSelectionModal(selectedTrain);
-                }
-            });
-        });
-
-        // Helper: Wait for passenger login/signup
-        function waitForPassengerLogin() {
-            return new Promise(resolve => {
-                // Listen for sessionStorage change (login/signup sets 'email')
-                const checkLogin = () => {
-                    if (sessionStorage.getItem('email')) {
-                        window.removeEventListener('storage', checkLogin);
-                        resolve();
-                    }
-                };
-                window.addEventListener('storage', checkLogin);
-                // Also poll every 500ms in case login happens in same tab
-                const interval = setInterval(() => {
-                    if (sessionStorage.getItem('email')) {
-                        clearInterval(interval);
-                        window.removeEventListener('storage', checkLogin);
-                        resolve();
-                    }
-                }, 500);
+                    <div class="train-actions">
+                        <button class="btn btn-primary select-train" data-train-id="${train.id}" data-train-name="${train.name}" data-train-price="${totalPrice}" data-train-from="${train.from}" data-train-to="${train.to}" data-train-departure="${train.departure}" data-train-arrival="${train.arrival}">Select</button>
+                        <button class="btn btn-outline-primary track-train" data-train-id="${train.id}">Track</button>
+                    </div>
+                `;
+                trainResults.appendChild(trainCard);
+                
+                // Add track button event listener
+                const trackBtn = trainCard.querySelector('.track-train');
+                trackBtn.addEventListener('click', () => {
+                    fetch(`/api/tracking/${train.id}`)
+                        .then(res => res.json())
+                        .then(trackingData => {
+                            showTrainRoute({
+                                from: train.from,
+                                to: train.to,
+                                progress: trackingData.progress || 0,
+                                status: trackingData.status || 'Running',
+                                _id: train.id
+                            });
+                        })
+                        .catch(err => {
+                            console.error('Error tracking train:', err);
+                            showAlert('Could not get tracking information', 'error');
+                        });
+                });
             });
         }
-    }
-    
-    // Show modal
-    modal.style.display = 'block';
+    })
+    .catch(err => {
+        console.error('Error searching trains:', err);
+        showAlert('Could not search for trains', 'error');
+        trainResults.innerHTML = '<p class="text-center">Error searching for trains.</p>';
+    });
+            // Add event listeners to select buttons
+            const selectButtons = trainResults.querySelectorAll('.select-train');
+            selectButtons.forEach(button => {
+                button.addEventListener('click', async function() {
+                    let passengerEmail = sessionStorage.getItem('email');
+                    if (!passengerEmail) {
+                        showAlert('Please login or register to book tickets.', 'error');
+                        document.getElementById('loginModal').style.display = 'block';
+                        await waitForPassengerLogin();
+                        passengerEmail = sessionStorage.getItem('email');
+                        if (!passengerEmail) return;
+                    }
+                    const trainId = this.getAttribute('data-train-id');
+                    const trainName = this.getAttribute('data-train-name');
+                    const trainPrice = this.getAttribute('data-train-price');
+                    const trainFrom = this.getAttribute('data-train-from');
+                    const trainTo = this.getAttribute('data-train-to');
+                    const trainDeparture = this.getAttribute('data-train-departure');
+                    const trainArrival = this.getAttribute('data-train-arrival');
+                    const selectedTrain = {
+                        id: trainId,
+                        name: trainName,
+                        price: trainPrice,
+                        from: trainFrom,
+                        to: trainTo,
+                        departure: trainDeparture,
+                        arrival: trainArrival,
+                        passengers: passengers,
+                        passengerEmail: passengerEmail
+                    };
+                    sessionStorage.setItem('selectedTrain', JSON.stringify(selectedTrain));
+                    const modal = document.getElementById('trainResultsModal');
+                    if (modal) modal.style.display = 'none';
+                    const seatModal = document.getElementById('seatSelectionModal');
+                    if (seatModal) {
+                        seatModal.style.display = 'block';
+                        updateSeatSelectionModal(selectedTrain);
+                    }
+                });
+            });
+        }
+}
+
+function waitForPassengerLogin() {
+    return new Promise(resolve => {
+        const checkLogin = () => {
+            if (sessionStorage.getItem('email')) {
+                window.removeEventListener('storage', checkLogin);
+                resolve();
+            }
+        };
+        window.addEventListener('storage', checkLogin);
+        const interval = setInterval(() => {
+            if (sessionStorage.getItem('email')) {
+                clearInterval(interval);
+                window.removeEventListener('storage', checkLogin);
+                resolve();
+            }
+        }, 500);
+    });
 }
 
 // Update seat selection modal with selected train info
@@ -419,7 +448,6 @@ function updateSeatSelectionModal(train) {
     };
     // Reset seat selection
     resetSeatSelection();
-}
 
 // Initialize seat selection functionality
 function initSeatSelection() {
@@ -468,7 +496,6 @@ function initSeatSelection() {
             window.location.href = 'payment.html';
         });
     }
-}
 
 // Update seat map based on selected coach
 function updateSeatMap(coachId) {
