@@ -1,6 +1,6 @@
 # Flask and extensions
 flask==2.0.3
-flask-cors==3.0.10
+flask-cors==6.0.0
 flask-jwt-extended==4.3.1
 
 # Twilio
